@@ -74,7 +74,7 @@ export default function PhoneTracking() {
     setUpdating(trackingId);
     try {
       const token = localStorage.getItem('token');
-      const body: StatusUpdateBody = { status: newStatus };
+      const body: Record<string, unknown> = { status: newStatus };
       if (additionalInfo) body.additional_info = additionalInfo;
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/phone-tracking/requests/${trackingId}/status/`, {

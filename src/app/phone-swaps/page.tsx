@@ -95,7 +95,7 @@ export default function PhoneSwaps() {
     }
   };
 
-  const updateStatus = async (swapId: string, newStatus: string, additionalData?: StatusUpdateData) => {
+  const updateStatus = async (swapId: string, newStatus: string, additionalData?: Record<string, unknown>) => {
     setUpdating(swapId);
     try {
       const token = localStorage.getItem('token');
@@ -421,7 +421,7 @@ export default function PhoneSwaps() {
                   const completion_date = (document.getElementById('completion_date') as HTMLInputElement).value;
                   const additional_notes = (document.getElementById('additional_notes') as HTMLTextAreaElement).value;
 
-                  const additionalData: StatusUpdateData = {};
+                  const additionalData: Record<string, unknown> = {};
                   if (estimated_value) additionalData.estimated_value = parseFloat(estimated_value);
                   if (final_value) additionalData.final_value = parseFloat(final_value);
                   if (swap_difference) additionalData.swap_difference = parseFloat(swap_difference);

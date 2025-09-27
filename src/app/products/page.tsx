@@ -147,7 +147,7 @@ export default function Products() {
         formDataToSend.append('main_image', mainImage);
       }
 
-      additionalImages.forEach((image, index) => {
+      additionalImages.forEach((image) => {
         formDataToSend.append('additional_images', image);
       });
 
