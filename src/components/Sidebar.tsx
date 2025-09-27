@@ -128,7 +128,7 @@ export default function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
                   });
                   localStorage.removeItem('token');
                   window.location.href = '/';
-                } catch (error) {
+                } catch {
                   console.error('Logout failed');
                 }
               }}

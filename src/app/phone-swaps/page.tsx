@@ -54,6 +54,15 @@ interface ApiResponse {
   statistics: Statistics;
 }
 
+interface StatusUpdateData {
+  estimated_value?: number;
+  final_value?: number;
+  swap_difference?: number;
+  inspection_date?: string;
+  completion_date?: string;
+  additional_notes?: string;
+}
+
 export default function PhoneSwaps() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -86,7 +95,7 @@ export default function PhoneSwaps() {
     }
   };
 
-  const updateStatus = async (swapId: string, newStatus: string, additionalData?: any) => {
+  const updateStatus = async (swapId: string, newStatus: string, additionalData?: StatusUpdateData) => {
     setUpdating(swapId);
     try {
       const token = localStorage.getItem('token');
@@ -182,7 +191,7 @@ export default function PhoneSwaps() {
               },
             }}
           >
-            {Object.entries(data.statistics).map(([key, value], index) => (
+            {Object.entries(data.statistics).map(([key, value]) => (
               <motion.div
                 key={key}
                 className="bg-slate-700 p-4 rounded-lg text-center"
@@ -412,7 +421,7 @@ export default function PhoneSwaps() {
                   const completion_date = (document.getElementById('completion_date') as HTMLInputElement).value;
                   const additional_notes = (document.getElementById('additional_notes') as HTMLTextAreaElement).value;
 
-                  const additionalData: any = {};
+                  const additionalData: StatusUpdateData = {};
                   if (estimated_value) additionalData.estimated_value = parseFloat(estimated_value);
                   if (final_value) additionalData.final_value = parseFloat(final_value);
                   if (swap_difference) additionalData.swap_difference = parseFloat(swap_difference);

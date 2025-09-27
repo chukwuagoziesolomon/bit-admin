@@ -33,6 +33,11 @@ interface ApiResponse {
   statistics: Statistics;
 }
 
+interface StatusUpdateBody {
+  status: string;
+  additional_info?: string;
+}
+
 export default function PhoneTracking() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -69,7 +74,7 @@ export default function PhoneTracking() {
     setUpdating(trackingId);
     try {
       const token = localStorage.getItem('token');
-      const body: any = { status: newStatus };
+      const body: StatusUpdateBody = { status: newStatus };
       if (additionalInfo) body.additional_info = additionalInfo;
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/phone-tracking/requests/${trackingId}/status/`, {
@@ -170,7 +175,7 @@ export default function PhoneTracking() {
               },
             }}
           >
-            {Object.entries(data.statistics).map(([key, value], index) => (
+            {Object.entries(data.statistics).map(([key, value]) => (
               <motion.div
                 key={key}
                 className="bg-slate-700 p-4 rounded-lg text-center"
