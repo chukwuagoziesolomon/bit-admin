@@ -61,7 +61,7 @@ export default function PhoneTracking() {
       if (!response.ok) {
         throw new Error('Failed to fetch phone tracking requests');
       }
-      const result: ApiResponse = await response.json();
+      const result = await response.json() as ApiResponse;
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -88,7 +88,7 @@ export default function PhoneTracking() {
       if (!response.ok) {
         throw new Error('Failed to update status');
       }
-      const result = await response.json();
+      const result = await response.json() as { message: string };
       alert(result.message);
       fetchRequests(); // Refresh data
     } catch (err) {
@@ -192,13 +192,13 @@ export default function PhoneTracking() {
 
           {/* Requests List */}
           <div className="space-y-6">
-            {data.requests.map((request, index) => (
+            {data.requests.map((request) => (
               <motion.div
                 key={request.tracking_id}
                 className="bg-slate-700 p-6 rounded-lg shadow-lg"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.6 }}
+                transition={{ duration: 0.6 }}
               >
                 <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-4">
                   <div className="flex-1">
