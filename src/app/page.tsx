@@ -12,7 +12,7 @@ export default function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/login/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/admin/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -30,7 +30,12 @@ export default function Login() {
           alert('Not authorized as admin');
         }
       } else {
-        alert('Login failed');
+        const errorData = await response.json();
+        if (errorData.non_field_errors && errorData.non_field_errors.length > 0) {
+          alert(errorData.non_field_errors[0]);
+        } else {
+          alert('Login failed');
+        }
       }
     } catch (error) {
       alert('An error occurred');
@@ -68,7 +73,7 @@ export default function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400"
-              placeholder="Enter your email"
+              placeholder="admin@bitgadgetz.com"
               required
             />
           </motion.div>
@@ -86,7 +91,7 @@ export default function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400"
-              placeholder="Enter your password"
+              placeholder="SecurePass2024!"
               required
             />
           </motion.div>
@@ -109,6 +114,14 @@ export default function Login() {
           transition={{ delay: 1.0 }}
         >
           Welcome to Bit Admin Dashboard
+        </motion.p>
+        <motion.p
+          className="text-center text-slate-500 text-sm mt-2"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2 }}
+        >
+          Test Credentials: admin@bitgadgetz.com / SecurePass2024!
         </motion.p>
       </motion.div>
     </div>

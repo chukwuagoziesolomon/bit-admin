@@ -2,31 +2,32 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Menu, Plus, Upload, X } from 'lucide-react';
+import { Menu, Plus, Upload, X, Edit, Eye, Package, AlertTriangle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
 
 interface ProductFormData {
-  name: string;
-  slug: string;
-  category: string;
-  description: string;
-  short_description: string;
-  price: string;
-  price_usdt: string;
-  discount_percentage: string;
-  stock_quantity: string;
-  sku: string;
-  brand: string;
-  model: string;
-  colors: string[];
-  storage_options: string[];
-  ram_options: string[];
-  specifications: string;
-  features: string[];
-  is_featured: boolean;
-  is_active: boolean;
-}
+   name: string;
+   slug: string;
+   category: string;
+   description: string;
+   short_description: string;
+   price: string;
+   price_usdt: string;
+   discount_percentage: string;
+   stock_quantity: string;
+   product_condition: string;
+   sku: string;
+   brand: string;
+   model: string;
+   colors: string[];
+   storage_options: string[];
+   ram_options: string[];
+   specifications: string;
+   features: string[];
+   is_featured: boolean;
+   is_active: boolean;
+ }
 
 interface Category {
   id: number;
@@ -40,6 +41,10 @@ export default function Products() {
   const [loading, setLoading] = useState(false);
   const [mainImage, setMainImage] = useState<File | null>(null);
   const [additionalImages, setAdditionalImages] = useState<File[]>([]);
+  const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
+  const [products, setProducts] = useState<any[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [stockUpdating, setStockUpdating] = useState<number | null>(null);
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     slug: '',
@@ -50,6 +55,7 @@ export default function Products() {
     price_usdt: '',
     discount_percentage: '',
     stock_quantity: '',
+    product_condition: '',
     sku: '',
     brand: '',
     model: '',
@@ -71,6 +77,64 @@ export default function Products() {
       { id: 4, name: 'accessories', display_name: 'Accessories' },
     ]);
   }, []);
+
+  // Fetch products when tab changes to list
+  useEffect(() => {
+    if (activeTab === 'list') {
+      fetchProducts();
+    }
+  }, [activeTab]);
+
+  const fetchProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      const result = await response.json();
+      setProducts(result.results || []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch products');
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  const toggleStockStatus = async (productId: number, action: 'out_of_stock' | 'restore', quantity?: number) => {
+    setStockUpdating(productId);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/${productId}/toggle-stock/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,
+        },
+        body: JSON.stringify({
+          action,
+          ...(quantity && { quantity })
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update stock status');
+      }
+
+      const result = await response.json();
+      toast.success(result.message || 'Stock status updated successfully');
+      fetchProducts(); // Refresh products list
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update stock status');
+    } finally {
+      setStockUpdating(null);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -181,6 +245,7 @@ export default function Products() {
         price_usdt: '',
         discount_percentage: '',
         stock_quantity: '',
+        product_condition: '',
         sku: '',
         brand: '',
         model: '',
@@ -213,21 +278,209 @@ export default function Products() {
           <Menu size={20} />
         </button>
 
-        <div className="max-w-4xl mx-auto">
-          <motion.div
-            className="flex items-center gap-4 mb-8"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Plus className="text-blue-400" size={32} />
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold gradient-text">Create New Product</h1>
-              <p className="text-slate-400">Add a new product to your inventory</p>
-            </div>
-          </motion.div>
+        <div className="max-w-7xl mx-auto">
+          {/* Tab Navigation */}
+          <div className="flex gap-4 mb-8">
+            <button
+              onClick={() => setActiveTab('create')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                activeTab === 'create'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              <Plus size={20} />
+              Create Product
+            </button>
+            <button
+              onClick={() => setActiveTab('list')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                activeTab === 'list'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              <Package size={20} />
+              All Products
+            </button>
+          </div>
 
-          <motion.form
+          {activeTab === 'create' && (
+            <motion.div
+              className="flex items-center gap-4 mb-8"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <Plus className="text-blue-400" size={32} />
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold gradient-text">Create New Product</h1>
+                <p className="text-slate-400">Add a new product to your inventory</p>
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'list' && (
+            <motion.div
+              className="flex items-center gap-4 mb-8"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              <Package className="text-green-400" size={32} />
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold gradient-text">All Products</h1>
+                <p className="text-slate-400">Manage your product inventory</p>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Products List Tab */}
+          {activeTab === 'list' && (
+            <motion.div
+              className="bg-slate-700 rounded-lg shadow-lg overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+            >
+              {productsLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                </div>
+              ) : products.length === 0 ? (
+                <div className="text-center p-8">
+                  <Package className="mx-auto mb-4 text-slate-400" size={48} />
+                  <p className="text-slate-400">No products found</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-600">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Product
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Category
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Price
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Stock
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Condition
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-600">
+                      {products.map((product, index) => (
+                        <motion.tr
+                          key={product.id}
+                          className="hover:bg-slate-600 transition-colors"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05, duration: 0.4 }}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <img
+                                src={product.main_image}
+                                alt={product.name}
+                                className="w-12 h-12 rounded-lg object-cover mr-3"
+                              />
+                              <div>
+                                <div className="text-sm font-medium text-white">{product.name}</div>
+                                <div className="text-sm text-slate-400">{product.sku}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-white">{product.category?.display_name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-white">
+                              ₦{product.price?.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className={`text-sm font-medium ${
+                              product.stock_quantity > 0 ? 'text-green-400' : 'text-red-400'
+                            }`}>
+                              {product.stock_quantity || 0}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              product.product_condition === 'new' ? 'bg-green-600 text-white' :
+                              product.product_condition === 'uk_used' ? 'bg-blue-600 text-white' :
+                              product.product_condition === 'nigerian_used' ? 'bg-yellow-600 text-white' :
+                              'bg-purple-600 text-white'
+                            }`}>
+                              {product.condition_display || product.product_condition}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                              product.is_active ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                            }`}>
+                              {product.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex gap-2">
+                              <button
+                                className="text-blue-400 hover:text-blue-300 transition-colors"
+                                title="Edit Product"
+                              >
+                                <Edit size={16} />
+                              </button>
+                              <button
+                                className="text-green-400 hover:text-green-300 transition-colors"
+                                title="View Details"
+                              >
+                                <Eye size={16} />
+                              </button>
+                              {product.stock_quantity > 0 ? (
+                                <button
+                                  onClick={() => toggleStockStatus(product.id, 'out_of_stock')}
+                                  disabled={stockUpdating === product.id}
+                                  className="text-red-400 hover:text-red-300 disabled:text-gray-500 transition-colors"
+                                  title="Mark Out of Stock"
+                                >
+                                  <AlertTriangle size={16} />
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => toggleStockStatus(product.id, 'restore', 10)}
+                                  disabled={stockUpdating === product.id}
+                                  className="text-green-400 hover:text-green-300 disabled:text-gray-500 transition-colors"
+                                  title="Restore Stock"
+                                >
+                                  <Package size={16} />
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Create Product Form */}
+          {activeTab === 'create' && (
+            <motion.form
             onSubmit={handleSubmit}
             className="bg-slate-700 p-6 rounded-lg shadow-lg space-y-6"
             initial={{ opacity: 0, y: 20 }}
@@ -286,7 +539,7 @@ export default function Products() {
                 >
                   <option value="">Select Category</option>
                   {categories.map(category => (
-                    <option key={category.id} value={category.name}>
+                    <option key={category.id} value={category.id}>
                       {category.display_name}
                     </option>
                   ))}
@@ -383,6 +636,25 @@ export default function Products() {
                   className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                   required
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Product Condition *
+                </label>
+                <select
+                  name="product_condition"
+                  value={formData.product_condition}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                  required
+                >
+                  <option value="">Select Condition</option>
+                  <option value="new">New</option>
+                  <option value="uk_used">UK Used</option>
+                  <option value="nigerian_used">Nigerian Used</option>
+                  <option value="refurbished">Refurbished</option>
+                </select>
               </div>
             </div>
 
@@ -741,7 +1013,8 @@ export default function Products() {
               </button>
             </div>
           </motion.form>
-        </div>
+        )}
+      </div>
       </main>
 
       <Toaster
