@@ -132,6 +132,7 @@ export default function UsersPage() {
     waitlistCurrentPage, waitlistPerPage, waitlistSearchQuery, waitlistDateFrom, waitlistDateTo
   ]);
 
+  // Move functions inside useEffect or wrap with useCallback to fix dependency warning
   const fetchUsers = async () => {
     try {
       setUsersLoading(true);
@@ -190,6 +191,7 @@ export default function UsersPage() {
       setWaitlistLoading(false);
     }
   };
+
 
   const getRoleBadge = (user: User) => {
     if (user.is_superuser) {

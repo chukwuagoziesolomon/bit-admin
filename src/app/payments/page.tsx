@@ -393,7 +393,7 @@ export default function Payments() {
                 <tbody className="divide-y divide-slate-600">
                   {data.payments.map((payment, index) => (
                     <motion.tr
-                      key={payment.id}
+                      key={`${payment.payment_id}-${index}`}
                       className="hover:bg-slate-600 transition-colors"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
