@@ -7,17 +7,39 @@ import { Menu, TrendingUp, ShoppingCart, Package, CreditCard, User, MessageSquar
 import Sidebar from '../../components/Sidebar';
 
 interface ChartDataItem {
-  month: string;
-  sales: number;
-  orders: number;
-}
+   date: string;
+   revenue: number;
+   orders: number;
+   formatted_date: string;
+ }
 
-interface SalesChartResponse {
-  chart_data: ChartDataItem[];
-  period: string;
-  total_sales: number;
-  total_orders: number;
-}
+ interface WeeklyChartData {
+   week: string;
+   revenue: number;
+   orders: number;
+   daily_data: ChartDataItem[];
+ }
+
+ interface ChartDataResponse {
+   daily: ChartDataItem[];
+   weekly: WeeklyChartData[];
+ }
+
+ interface SalesChartResponse {
+   chart_data: ChartDataResponse;
+   summary: {
+     total_revenue: number;
+     total_orders: number;
+     period_days: number;
+     average_daily_revenue: number;
+     average_daily_orders: number;
+   };
+   status_distribution: {
+     pending: number;
+     paid: number;
+     payment_processing: number;
+   };
+ }
 
 interface ActivityItem {
   id: string;
@@ -70,12 +92,37 @@ interface ServiceRequests {
 }
 
 interface DashboardStatsResponse {
-  stats_cards: StatsCards;
-  order_status_breakdown: OrderStatusBreakdown[];
-  recent_orders: RecentOrder[];
-  top_products: TopProduct[];
-  service_requests: ServiceRequests;
-}
+   orders: {
+     total: number;
+     last_30_days: number;
+     last_7_days: number;
+     today: number;
+     status_breakdown: {
+       pending: number;
+       paid: number;
+       payment_processing: number;
+     };
+   };
+   revenue: {
+     total: number;
+     last_30_days: number;
+     last_7_days: number;
+   };
+   products: {
+     total: number;
+     active: number;
+     out_of_stock: number;
+     low_stock: number;
+   };
+   customers: {
+     total: number;
+   };
+   recent_activity: {
+     orders: number;
+     contact_messages: number;
+     phone_requests: number;
+   };
+ }
 
 export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -116,11 +163,13 @@ export default function Dashboard() {
       }
 
       const result: SalesChartResponse = await response.json();
-      setChartData(result.chart_data);
-      setTotalSales(result.total_sales);
-      setTotalOrders(result.total_orders);
+      setChartData(result.chart_data.daily || []);
+      setTotalSales(result.summary.total_revenue || 0);
+      setTotalOrders(result.summary.total_orders || 0);
     } catch (err) {
       setChartError(err instanceof Error ? err.message : 'Failed to load chart data');
+      setTotalSales(0); // Ensure totalSales is always a number
+      setTotalOrders(0); // Ensure totalOrders is always a number
     } finally {
       setChartLoading(false);
     }
@@ -140,9 +189,10 @@ export default function Dashboard() {
       }
 
       const result: RecentActivityResponse = await response.json();
-      setActivities(result.activities);
+      setActivities(result.activities || []);
     } catch (err) {
       setActivitiesError(err instanceof Error ? err.message : 'Failed to load recent activity');
+      setActivities([]); // Ensure activities is always an array
     } finally {
       setActivitiesLoading(false);
     }
@@ -162,9 +212,75 @@ export default function Dashboard() {
       }
 
       const result: DashboardStatsResponse = await response.json();
-      setDashboardStats(result);
+
+      // NOTE: The API should only return revenue from PAID orders, not pending orders
+      // Currently showing warning in UI that only paid orders should be counted
+      setDashboardStats(result || {
+        orders: {
+          total: 0,
+          last_30_days: 0,
+          last_7_days: 0,
+          today: 0,
+          status_breakdown: {
+            pending: 0,
+            paid: 0,
+            payment_processing: 0
+          }
+        },
+        revenue: {
+          total: 0,
+          last_30_days: 0,
+          last_7_days: 0
+        },
+        products: {
+          total: 0,
+          active: 0,
+          out_of_stock: 0,
+          low_stock: 0
+        },
+        customers: {
+          total: 0
+        },
+        recent_activity: {
+          orders: 0,
+          contact_messages: 0,
+          phone_requests: 0
+        }
+      });
     } catch (err) {
       setStatsError(err instanceof Error ? err.message : 'Failed to load dashboard stats');
+      setDashboardStats({
+        orders: {
+          total: 0,
+          last_30_days: 0,
+          last_7_days: 0,
+          today: 0,
+          status_breakdown: {
+            pending: 0,
+            paid: 0,
+            payment_processing: 0
+          }
+        },
+        revenue: {
+          total: 0,
+          last_30_days: 0,
+          last_7_days: 0
+        },
+        products: {
+          total: 0,
+          active: 0,
+          out_of_stock: 0,
+          low_stock: 0
+        },
+        customers: {
+          total: 0
+        },
+        recent_activity: {
+          orders: 0,
+          contact_messages: 0,
+          phone_requests: 0
+        }
+      });
     } finally {
       setStatsLoading(false);
     }
@@ -257,11 +373,17 @@ export default function Dashboard() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <TrendingUp className="text-white" size={20} />
-                  <h3 className="text-base md:text-lg font-semibold text-white">Total Sales</h3>
+                  <h3 className="text-base md:text-lg font-semibold text-white">Total Revenue</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  ₦{dashboardStats.stats_cards.total_sales.toLocaleString()}
+                  ₦{(dashboardStats?.revenue?.total || 0).toLocaleString()}
                 </p>
+                <div className="text-xs text-green-100 mt-1">
+                  Last 30 days: ₦{(dashboardStats?.revenue?.last_30_days || 0).toLocaleString()}
+                </div>
+                <div className="text-xs text-yellow-200 mt-1">
+                  ⚠️ Only showing paid orders
+                </div>
               </motion.div>
 
               <motion.div
@@ -275,8 +397,11 @@ export default function Dashboard() {
                   <h3 className="text-base md:text-lg font-semibold text-white">Total Orders</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  {dashboardStats.stats_cards.total_orders}
+                  {dashboardStats?.orders?.total || 0}
                 </p>
+                <div className="text-xs text-blue-100 mt-1">
+                  Today: {dashboardStats?.orders?.today || 0} | Paid: {dashboardStats?.orders?.status_breakdown?.paid || 0}
+                </div>
               </motion.div>
 
               <motion.div
@@ -287,11 +412,14 @@ export default function Dashboard() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Package className="text-white" size={20} />
-                  <h3 className="text-base md:text-lg font-semibold text-white">Total Products</h3>
+                  <h3 className="text-base md:text-lg font-semibold text-white">Products</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  {dashboardStats.stats_cards.total_products}
+                  {dashboardStats?.products?.total || 0}
                 </p>
+                <div className="text-xs text-purple-100 mt-1">
+                  Active: {dashboardStats?.products?.active || 0} | Low Stock: {dashboardStats?.products?.low_stock || 0}
+                </div>
               </motion.div>
 
               <motion.div
@@ -302,11 +430,14 @@ export default function Dashboard() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <User className="text-white" size={20} />
-                  <h3 className="text-base md:text-lg font-semibold text-white">Total Users</h3>
+                  <h3 className="text-base md:text-lg font-semibold text-white">Customers</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  {dashboardStats.stats_cards.total_users}
+                  {dashboardStats?.customers?.total || 0}
                 </p>
+                <div className="text-xs text-orange-100 mt-1">
+                  Recent Activity: {dashboardStats?.recent_activity?.orders || 0} orders
+                </div>
               </motion.div>
             </motion.div>
           ) : null}
@@ -321,11 +452,15 @@ export default function Dashboard() {
               <div className="flex gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="text-blue-400" size={16} />
-                  <span className="text-slate-300">Total Sales: ${totalSales.toLocaleString()}</span>
+                  <span className="text-slate-300">Revenue: ₦{(dashboardStats?.revenue?.total || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="text-green-400" size={16} />
-                  <span className="text-slate-300">Total Orders: {totalOrders}</span>
+                  <span className="text-slate-300">Orders: {dashboardStats?.orders?.total || 0}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Package className="text-purple-400" size={16} />
+                  <span className="text-slate-300">Products: {dashboardStats?.products?.active || 0}/{dashboardStats?.products?.total || 0}</span>
                 </div>
               </div>
             </div>
@@ -345,7 +480,7 @@ export default function Dashboard() {
                 <BarChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
                   <XAxis
-                    dataKey="month"
+                    dataKey="formatted_date"
                     stroke="#cbd5e1"
                     fontSize={12}
                   />
@@ -361,15 +496,15 @@ export default function Dashboard() {
                       color: '#f1f5f9',
                     }}
                     formatter={(value: number, name: string) => [
-                      name === 'sales' ? `₦${value.toLocaleString()}` : value,
-                      name === 'sales' ? 'Sales' : 'Orders'
+                      name === 'revenue' ? `₦${value.toLocaleString()}` : value,
+                      name === 'revenue' ? 'Revenue' : 'Orders'
                     ]}
                   />
                   <Bar
-                    dataKey="sales"
+                    dataKey="revenue"
                     fill="#3b82f6"
                     radius={[4, 4, 0, 0]}
-                    name="sales"
+                    name="revenue"
                   />
                   <Bar
                     dataKey="orders"

@@ -6,62 +6,79 @@ import { Menu, CreditCard, DollarSign, TrendingUp, Search, Filter, Calendar } fr
 import Sidebar from '../../components/Sidebar';
 
 interface Payment {
-  id: number;
-  payment_id: string;
-  order: {
-    id: number;
-    order_id: string;
-    customer_email: string;
-    total_amount: number;
-  };
-  payment_method: string;
-  amount_usd: number;
-  amount_usdt: number | null;
-  status: string;
-  transaction_hash: string | null;
-  created_at: string;
-}
+   payment_id: string;
+   order: {
+     order_id: string;
+     customer_name: string;
+     customer_email: string;
+   };
+   payment_method: string;
+   amount_usd: string;
+   amount_usdt: string;
+   usdt_network: string;
+   wallet_address: string;
+   transaction_hash: string;
+   status: string;
+   payment_data: {
+     blockchain_confirmations: number;
+     network_fee: string;
+   };
+   expires_at: string;
+   confirmed_at: string | null;
+   created_at: string;
+   updated_at: string;
+ }
 
-interface Statistics {
-  total_payments: number;
-  total_amount_usd: number;
-  total_amount_usdt: number;
-  recent_payments: number;
-  status_breakdown: Array<{ status: string; count: number }>;
-  method_breakdown: Array<{ payment_method: string; count: number }>;
-}
+ interface Statistics {
+   total_payments: number;
+   total_amount_ngn: number;
+   total_amount_usdt: number;
+   recent_payments: number;
+   status_breakdown: Array<{ status: string; count: number }>;
+   method_breakdown: Array<{ payment_method: string; count: number }>;
+   currency: string;
+   currency_symbol: string;
+ }
 
-interface ApiResponse {
-  payments: Payment[];
-  statistics: Statistics;
-  filters_applied: {
-    status: string | null;
-    payment_method: string | null;
-    search: string | null;
-    date_from: string | null;
-    date_to: string | null;
-  };
-}
+ interface ApiResponse {
+   payments: Payment[];
+   statistics: Statistics;
+   filters_applied: {
+     status: string | null;
+     payment_method: string | null;
+     search: string | null;
+     date_from: string | null;
+     date_to: string | null;
+   };
+ }
 
 export default function Payments() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [methodFilter, setMethodFilter] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+   const [sidebarOpen, setSidebarOpen] = useState(true);
+   const [data, setData] = useState<ApiResponse | null>(null);
+   const [loading, setLoading] = useState(true);
+   const [error, setError] = useState<string | null>(null);
+   const [searchTerm, setSearchTerm] = useState('');
+   const [statusFilter, setStatusFilter] = useState('');
+   const [methodFilter, setMethodFilter] = useState('');
+   const [dateFrom, setDateFrom] = useState('');
+   const [dateTo, setDateTo] = useState('');
+
+   // Pagination state
+   const [currentPage, setCurrentPage] = useState(1);
+   const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
     fetchPayments();
-  }, [searchTerm, statusFilter, methodFilter, dateFrom, dateTo]);
+  }, [searchTerm, statusFilter, methodFilter, dateFrom, dateTo, currentPage, perPage]);
 
   const fetchPayments = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        per_page: perPage.toString(),
+      });
 
       if (searchTerm) params.append('search', searchTerm);
       if (statusFilter) params.append('status', statusFilter);
@@ -69,9 +86,7 @@ export default function Payments() {
       if (dateFrom) params.append('date_from', dateFrom);
       if (dateTo) params.append('date_to', dateTo);
 
-      const url = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/payments/${params.toString() ? '?' + params.toString() : ''}`;
-
-      const response = await fetch(url, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/payments/tracking/?${params}`, {
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -190,7 +205,7 @@ export default function Payments() {
               <div className="flex items-center justify-center mb-2">
                 <CreditCard className="text-blue-400" size={20} />
               </div>
-              <h3 className="text-lg font-semibold text-white">Total</h3>
+              <h3 className="text-lg font-semibold text-white">Total Payments</h3>
               <p className="text-2xl font-bold text-blue-400">{data.statistics.total_payments || 0}</p>
             </motion.div>
 
@@ -204,8 +219,8 @@ export default function Payments() {
               <div className="flex items-center justify-center mb-2">
                 <DollarSign className="text-green-400" size={20} />
               </div>
-              <h3 className="text-sm font-semibold text-white">USD Total</h3>
-              <p className="text-xl font-bold text-green-400">₦{data.statistics.total_amount_usd?.toLocaleString() || '0'}</p>
+              <h3 className="text-sm font-semibold text-white">NGN Total</h3>
+              <p className="text-xl font-bold text-green-400">{data.statistics.currency_symbol}{data.statistics.total_amount_ngn?.toLocaleString() || '0'}</p>
             </motion.div>
 
             <motion.div
@@ -272,7 +287,7 @@ export default function Payments() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <input
@@ -293,7 +308,6 @@ export default function Payments() {
                 <option value="completed">Completed</option>
                 <option value="pending">Pending</option>
                 <option value="failed">Failed</option>
-                <option value="processing">Processing</option>
               </select>
 
               <select
@@ -302,10 +316,9 @@ export default function Payments() {
                 className="px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
               >
                 <option value="">All Methods</option>
-                <option value="bank_transfer">Bank Transfer</option>
-                <option value="card">Card</option>
                 <option value="crypto">Crypto</option>
-                <option value="wallet">Wallet</option>
+                <option value="paystack">Paystack</option>
+                <option value="bank_transfer">Bank Transfer</option>
               </select>
 
               <input
@@ -323,6 +336,20 @@ export default function Payments() {
                 className="px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 placeholder="To date"
               />
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-400">Per page:</span>
+                <select
+                  value={perPage}
+                  onChange={(e) => setPerPage(Number(e.target.value))}
+                  className="px-2 py-1 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                >
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
           </motion.div>
 
@@ -353,6 +380,9 @@ export default function Payments() {
                       Method
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                      Wallet/Network
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
                       Status
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
@@ -379,16 +409,24 @@ export default function Payments() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-white">{payment.order.order_id}</div>
-                        <div className="text-sm text-slate-400">${payment.order.total_amount}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-white">{payment.order.customer_email}</div>
+                        <div className="text-sm text-slate-400">{payment.order.customer_name}</div>
+                        <div className="text-sm text-slate-500">{payment.order.customer_email}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-white">
-                          ₦{payment.amount_usd}
-                          {payment.amount_usdt && (
-                            <div className="text-xs text-orange-400">{payment.amount_usdt} USDT</div>
+                          {payment.payment_method === 'crypto' ? (
+                            <>
+                              <div className="text-xs text-orange-400">{payment.amount_usdt} USDT</div>
+                              <div className="text-xs text-slate-400">₦{parseFloat(payment.amount_usd).toLocaleString()}</div>
+                              <div className="text-xs text-blue-400">{payment.usdt_network.toUpperCase()}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="text-sm text-white">₦{parseFloat(payment.amount_usd).toLocaleString()}</div>
+                              {payment.amount_usdt && (
+                                <div className="text-xs text-orange-400">{payment.amount_usdt} USDT</div>
+                              )}
+                            </>
                           )}
                         </div>
                       </td>
@@ -396,6 +434,18 @@ export default function Payments() {
                         <span className={`px-2 py-1 text-xs font-medium text-white rounded-full ${getMethodColor(payment.payment_method)}`}>
                           {payment.payment_method.replace('_', ' ')}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {payment.payment_method === 'crypto' ? (
+                          <div className="text-xs">
+                            <div className="text-slate-300 truncate max-w-32" title={payment.wallet_address}>
+                              {payment.wallet_address.substring(0, 12)}...{payment.wallet_address.slice(-8)}
+                            </div>
+                            <div className="text-blue-400">{payment.usdt_network.toUpperCase()}</div>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-400">N/A</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 text-xs font-medium text-white rounded-full ${getStatusColor(payment.status)}`}>
@@ -416,6 +466,73 @@ export default function Payments() {
               </table>
             </div>
           </motion.div>
+
+          {/* Pagination Controls */}
+          {data && data.payments.length > 0 && (
+            <motion.div
+              className="bg-slate-700 p-4 rounded-lg shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4 mt-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3, duration: 0.6 }}
+            >
+              <div className="text-sm text-slate-400">
+                Showing {((1) * perPage) + 1} to {Math.min(perPage, data.payments.length)} of {data.statistics.total_payments} payments
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                >
+                  Previous
+                </button>
+
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    className={`px-3 py-2 rounded-lg transition-colors ${currentPage === 1 ? 'bg-blue-600 text-white' : 'bg-slate-600 hover:bg-slate-500 text-white'}`}
+                  >
+                    1
+                  </button>
+                  {currentPage > 3 && <span className="text-slate-400">...</span>}
+                  {currentPage > 2 && (
+                    <button
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                      className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors"
+                    >
+                      {currentPage - 1}
+                    </button>
+                  )}
+                  {currentPage > 1 && currentPage < (Math.ceil(data.statistics.total_payments / perPage)) && (
+                    <button
+                      onClick={() => setCurrentPage(currentPage)}
+                      className="px-3 py-2 bg-blue-600 text-white rounded-lg"
+                    >
+                      {currentPage}
+                    </button>
+                  )}
+                  {currentPage < (Math.ceil(data.statistics.total_payments / perPage) - 1) && (
+                    <button
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                      className="px-3 py-2 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors"
+                    >
+                      {currentPage + 1}
+                    </button>
+                  )}
+                  {currentPage < (Math.ceil(data.statistics.total_payments / perPage) - 2) && <span className="text-slate-400">...</span>}
+                </div>
+
+                <button
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  disabled={currentPage >= Math.ceil(data.statistics.total_payments / perPage)}
+                  className="px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+                >
+                  Next
+                </button>
+              </div>
+            </motion.div>
+          )}
 
           {data.payments.length === 0 && (
             <div className="text-center py-12">

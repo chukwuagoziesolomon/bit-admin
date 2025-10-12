@@ -7,16 +7,16 @@ import toast, { Toaster } from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
 
 interface SiteSettings {
-  id: number;
-  shipment_price: number;
-  tax_percentage: number;
-  interstate_shipment_prices: Record<string, number>;
-  within_state_rate_per_km: number;
-  current_admin_state: string;
-  current_admin_city: string;
-  nigerian_states: string[];
-  updated_at: string;
-}
+   tax_percentage: number;
+   tax_amount: number;
+   shipping_amount: number;
+   default_interstate_shipping_fee: number;
+   current_admin_state: string;
+   current_admin_city: string;
+   interstate_prices: Record<string, number>;
+   nigerian_states: string[];
+   updated_at: string;
+ }
 
 export default function Settings() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -33,8 +33,8 @@ export default function Settings() {
     if (!settings) return;
     setSettings({
       ...settings,
-      interstate_shipment_prices: {
-        ...settings.interstate_shipment_prices,
+      interstate_prices: {
+        ...settings.interstate_prices,
         [state]: price,
       },
     });
@@ -42,11 +42,11 @@ export default function Settings() {
 
   const removeInterstatePrice = (state: string) => {
     if (!settings) return;
-    const newPrices = { ...settings.interstate_shipment_prices };
+    const newPrices = { ...settings.interstate_prices };
     delete newPrices[state];
     setSettings({
       ...settings,
-      interstate_shipment_prices: newPrices,
+      interstate_prices: newPrices,
     });
   };
 
@@ -70,7 +70,7 @@ export default function Settings() {
       return;
     }
 
-    if (settings?.interstate_shipment_prices[stateName]) {
+    if (settings?.interstate_prices[stateName]) {
       toast.error('State already exists!');
       return;
     }
@@ -110,19 +110,17 @@ export default function Settings() {
     setValidationErrors(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/site/settings/update/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/site/settings/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Token ${token}`,
         },
         body: JSON.stringify({
-          shipment_price: settings.shipment_price,
           tax_percentage: settings.tax_percentage,
-          within_state_rate_per_km: settings.within_state_rate_per_km,
+          default_interstate_shipping_fee: settings.default_interstate_shipping_fee,
           current_admin_state: settings.current_admin_state,
           current_admin_city: settings.current_admin_city,
-          interstate_shipment_prices: settings.interstate_shipment_prices,
         }),
       });
 
@@ -200,38 +198,26 @@ export default function Settings() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Shipment Price
-                </label>
-                <input
-                  type="number"
-                  value={settings.shipment_price}
-                  onChange={(e) => setSettings({ ...settings, shipment_price: parseFloat(e.target.value) })}
-                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
                   Tax Percentage
                 </label>
                 <input
                   type="number"
                   step="0.1"
-                  value={settings.tax_percentage}
-                  onChange={(e) => setSettings({ ...settings, tax_percentage: parseFloat(e.target.value) })}
+                  value={settings.tax_percentage || 0}
+                  onChange={(e) => setSettings({ ...settings, tax_percentage: parseFloat(e.target.value) || 0 })}
                   className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Within State Rate per KM
+                  Default Interstate Shipping Fee (₦)
                 </label>
                 <input
                   type="number"
                   step="0.01"
-                  value={settings.within_state_rate_per_km}
-                  onChange={(e) => setSettings({ ...settings, within_state_rate_per_km: parseFloat(e.target.value) })}
+                  value={settings.default_interstate_shipping_fee || 0}
+                  onChange={(e) => setSettings({ ...settings, default_interstate_shipping_fee: parseFloat(e.target.value) || 0 })}
                   className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 />
               </div>
@@ -241,11 +227,11 @@ export default function Settings() {
                   Current Admin State
                 </label>
                 <select
-                  value={settings.current_admin_state}
+                  value={settings.current_admin_state || ''}
                   onChange={(e) => setSettings({ ...settings, current_admin_state: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 >
-                  {settings.nigerian_states.map((state) => (
+                  {(settings.nigerian_states || []).map((state) => (
                     <option key={state} value={state}>
                       {state}
                     </option>
@@ -259,7 +245,7 @@ export default function Settings() {
                 </label>
                 <input
                   type="text"
-                  value={settings.current_admin_city}
+                  value={settings.current_admin_city || ''}
                   onChange={(e) => setSettings({ ...settings, current_admin_city: e.target.value })}
                   className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 />
@@ -270,7 +256,7 @@ export default function Settings() {
               <h3 className="text-lg font-semibold text-white mb-4">Interstate Shipment Prices</h3>
               <div className="bg-slate-600 p-4 rounded-lg">
                 <div className="space-y-4 mb-4">
-                  {Object.entries(settings.interstate_shipment_prices).map(([state, price]) => (
+                  {Object.entries(settings.interstate_prices || {}).map(([state, price]) => (
                     <div key={state} className="flex items-center gap-4 p-3 bg-slate-700 rounded">
                       <span className="text-slate-300 w-32 font-medium">{state}:</span>
                       <div className="flex-1 flex items-center gap-2">
