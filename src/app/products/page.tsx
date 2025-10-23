@@ -731,7 +731,7 @@ export default function Products() {
                     <option value="refurbished">Refurbished</option>
                   </select>
                   {formData.is_coupon && (
-                    <p className="text-xs text-slate-400 mt-1">Product condition is automatically set to "new" for coupon products</p>
+                    <p className="text-xs text-slate-400 mt-1">Product condition is automatically set to &quot;new&quot; for coupon products</p>
                   )}
                 </div>
               </div>
@@ -1139,7 +1139,7 @@ export default function Products() {
                         onChange={handleInputChange}
                         className="rounded border-slate-500 bg-slate-600 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className="text-slate-300">Product is Active/Visible</span>
+                      <span className="text-slate-300">Product is active/Visible</span>
                     </label>
                   </div>
                 </>
