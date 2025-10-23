@@ -15,13 +15,15 @@ import {
   MessageSquare,
   Users,
   Menu,
-  X
+  X,
+  Percent
 } from 'lucide-react';
 
 const menuItems = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { name: 'Banners', icon: Image, href: '/banners' },
   { name: 'Products', icon: Package, href: '/products' },
+  { name: 'Daily Deals', icon: Percent, href: '/daily-deals' },
   { name: 'Orders', icon: ShoppingCart, href: '/orders' },
   { name: 'Payments', icon: CreditCard, href: '/payments' },
   { name: 'Messages', icon: MessageSquare, href: '/messages' },
