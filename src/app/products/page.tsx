@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Menu, Plus, Upload, X, Edit, Eye, Package, AlertTriangle } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
+import Image from 'next/image';
 
 interface ProductFormData {
     name: string;
@@ -405,9 +406,11 @@ export default function Products() {
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <img
+                              <Image
                                 src={product.main_image}
                                 alt={product.name}
+                                width={48}
+                                height={48}
                                 className="w-12 h-12 rounded-lg object-cover mr-3"
                               />
                               <div>
