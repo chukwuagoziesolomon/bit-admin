@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // In-memory storage for products (in a real app, this would be a database)
-let products: any[] = [];
+const products: any[] = [];
 
 // GET /api/products/ - List all products
 export async function GET() {
