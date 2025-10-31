@@ -4,14 +4,15 @@ import { NextRequest, NextResponse } from 'next/server';
 const brands: any[] = [];
 
 // DELETE /api/brands/[id] - Delete a brand (Admin only)
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // Mock admin authentication check (in a real app, verify JWT token)
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const brandId = parseInt(params.id);
+  const { id } = await params;
+  const brandId = parseInt(id);
   const brandIndex = brands.findIndex(brand => brand.id === brandId);
 
   if (brandIndex === -1) {

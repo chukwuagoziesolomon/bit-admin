@@ -4,14 +4,15 @@ import { NextRequest, NextResponse } from 'next/server';
 const products: any[] = [];
 
 // DELETE /api/products/[id] - Delete a product (Admin only)
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   // Mock admin authentication check (in a real app, verify JWT token)
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const productId = parseInt(params.id);
+  const { id } = await params;
+  const productId = parseInt(id);
   const productIndex = products.findIndex(product => product.id === productId);
 
   if (productIndex === -1) {
