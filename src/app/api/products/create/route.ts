@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const name = formData.get('name') as string;
     const category = formData.get('category') as string;
-    const brandId = parseInt(formData.get('brand') as string);
+    const brandId = formData.get('brand') as string;
     const description = formData.get('description') as string;
     const short_description = formData.get('short_description') as string;
     const price = parseFloat(formData.get('price') as string);
@@ -42,10 +42,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Find the brand
-    const brand = brands.find(b => b.id === brandId);
+    // Find the brand by name or create a new one if it doesn't exist
+    let brand = brands.find(b => b.name.toLowerCase() === brandId.toLowerCase());
     if (!brand) {
-      return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
+      brand = {
+        id: brands.length + 1,
+        name: brandId,
+        display_name: brandId.charAt(0).toUpperCase() + brandId.slice(1),
+        description: `Brand for ${brandId}`,
+        logo: `https://cloudinary.com/.../brand_logos/${brandId}_logo.jpg`,
+        website: '',
+        is_active: true,
+        product_count: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      brands.push(brand);
     }
 
     // Mock image uploads (in a real app, upload to Cloudinary and get URLs)

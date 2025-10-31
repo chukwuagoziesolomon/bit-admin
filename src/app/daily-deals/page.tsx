@@ -6,7 +6,6 @@ import { Percent, Plus, Upload, X, Edit, Eye, Package, AlertTriangle, Calendar, 
 import toast, { Toaster } from 'react-hot-toast';
 
 interface DailyDealFormData {
-  product: string;
   title: string;
   subtitle: string;
   deal_price: string;
@@ -21,17 +20,16 @@ interface DailyDealFormData {
   terms_and_conditions: string;
 }
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  main_image: string;
-  sku: string;
-}
 
 interface DailyDeal {
   id: number;
-  product: Product;
+  product: {
+    id: number;
+    name: string;
+    price: number;
+    main_image: string;
+    sku: string;
+  };
   title: string;
   subtitle: string;
   deal_price: number;
@@ -51,13 +49,11 @@ interface DailyDeal {
 export default function DailyDeals() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
-  const [products, setProducts] = useState<Product[]>([]);
   const [deals, setDeals] = useState<DailyDeal[]>([]);
   const [loading, setLoading] = useState(false);
   const [dealsLoading, setDealsLoading] = useState(false);
   const [dealImage, setDealImage] = useState<File | null>(null);
   const [formData, setFormData] = useState<DailyDealFormData>({
-    product: '',
     title: '',
     subtitle: '',
     deal_price: '',
@@ -78,27 +74,7 @@ export default function DailyDeals() {
     }
   }, [activeTab]);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
-  const fetchProducts = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/deals/available-products/?per_page=1000`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch available products');
-      }
-      const result = await response.json();
-      setProducts(result.products || []);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to fetch available products');
-    }
-  };
 
   const fetchDeals = async () => {
     setDealsLoading(true);
@@ -150,7 +126,7 @@ export default function DailyDeals() {
       const formDataToSend = new FormData();
 
       Object.entries(formData).forEach(([key, value]) => {
-        if (value !== '' && value !== undefined && value !== null) {
+        if (key !== 'product' && value !== '' && value !== undefined && value !== null) {
           formDataToSend.append(key, String(value));
         }
       });
@@ -179,7 +155,6 @@ export default function DailyDeals() {
       toast.success('Daily deal created successfully!');
 
       setFormData({
-        product: '',
         title: '',
         subtitle: '',
         deal_price: '',
@@ -440,26 +415,6 @@ export default function DailyDeals() {
             >
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Select Product *
-                  </label>
-                  <select
-                    name="product"
-                    value={formData.product}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    required
-                  >
-                    <option value="">Select Product</option>
-                    {products.map(product => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} - ₦{product.price?.toLocaleString()} ({product.sku})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Deal Title *
