@@ -85,18 +85,18 @@ export default function DailyDeals() {
   const fetchProducts = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/deals/available-products/?per_page=1000`, {
         headers: {
           'Authorization': `Token ${token}`,
         },
       });
       if (!response.ok) {
-        throw new Error('Failed to fetch products');
+        throw new Error('Failed to fetch available products');
       }
       const result = await response.json();
-      setProducts(result.results || []);
+      setProducts(result.products || []);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to fetch products');
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch available products');
     }
   };
 
