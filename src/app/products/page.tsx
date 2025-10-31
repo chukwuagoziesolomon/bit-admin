@@ -199,39 +199,33 @@ export default function Products() {
       const token = localStorage.getItem('token');
       const formDataToSend = new FormData();
 
-      Object.entries(formData).forEach(([key, value]) => {
-        if (Array.isArray(value)) {
-          formDataToSend.append(key, JSON.stringify(value));
-        } else if (value !== '' && value !== undefined && value !== null) {
-          if (key === 'coupon_value') {
-            formDataToSend.append(key, Number(value).toString());
-          } else {
-            formDataToSend.append(key, String(value));
-          }
-        }
-      });
-
-      if (formData.is_coupon) {
-        formDataToSend.set('stock_quantity', '999999');
-        formDataToSend.set('product_condition', 'new');
-        formDataToSend.set('sku', `COUPON-${Date.now()}`);
-      }
-
-      // Handle image uploads for both regular and coupon products
-      if (mainImage) {
-        formDataToSend.append('main_image', mainImage);
-      }
-
-      additionalImages.forEach((image) => {
-        formDataToSend.append('additional_images', image);
-      });
+      const requestBody = {
+        name: formData.name,
+        slug: formData.slug,
+        category_input: formData.category,
+        brand_input: formData.brand,
+        description: formData.description,
+        short_description: formData.short_description,
+        price: formData.price,
+        price_usdt: formData.price_usdt,
+        discount_percentage: formData.discount_percentage,
+        stock_quantity: formData.stock_quantity,
+        product_condition: formData.product_condition,
+        sku: formData.sku,
+        model: formData.model,
+        colors: formData.colors,
+        storage_options: formData.storage_options,
+        is_active: formData.is_active,
+        is_featured: formData.is_featured,
+      };
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/`, {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Token ${token}`,
         },
-        body: formDataToSend,
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();

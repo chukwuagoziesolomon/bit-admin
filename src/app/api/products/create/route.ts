@@ -13,44 +13,44 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const formData = await request.formData();
-    const name = formData.get('name') as string;
-    const category = formData.get('category') as string;
-    const brandId = formData.get('brand') as string;
-    const description = formData.get('description') as string;
-    const short_description = formData.get('short_description') as string;
-    const price = parseFloat(formData.get('price') as string);
-    const price_usdt = formData.get('price_usdt') as string;
-    const discount_percentage = parseInt(formData.get('discount_percentage') as string);
-    const stock_quantity = parseInt(formData.get('stock_quantity') as string);
-    const product_condition = formData.get('product_condition') as string;
-    const sku = formData.get('sku') as string;
-    const model = formData.get('model') as string;
-    const colors = JSON.parse(formData.get('colors') as string);
-    const storage_options = JSON.parse(formData.get('storage_options') as string);
-    const display_specs = formData.get('display_specs') as string;
-    const chip_specs = formData.get('chip_specs') as string;
-    const camera_specs = formData.get('camera_specs') as string;
-    const storage_specs = formData.get('storage_specs') as string;
-    const battery_specs = formData.get('battery_specs') as string;
-    const operating_system = formData.get('operating_system') as string;
-    const weight = formData.get('weight') as string;
-    const main_image = formData.get('main_image') as File;
-    const additional_images = formData.getAll('additional_images') as File[];
+    const body = await request.json();
+    const name = body.name as string;
+    const category_input = body.category_input as string;
+    const brand_input = body.brand_input as string;
+    const description = body.description as string;
+    const short_description = body.short_description as string;
+    const price = parseFloat(body.price as string);
+    const price_usdt = body.price_usdt as string;
+    const discount_percentage = parseInt(body.discount_percentage as string);
+    const stock_quantity = parseInt(body.stock_quantity as string);
+    const product_condition = body.product_condition as string;
+    const sku = body.sku as string;
+    const model = body.model as string;
+    const colors = body.colors;
+    const storage_options = body.storage_options;
+    const display_specs = body.display_specs as string;
+    const chip_specs = body.chip_specs as string;
+    const camera_specs = body.camera_specs as string;
+    const storage_specs = body.storage_specs as string;
+    const battery_specs = body.battery_specs as string;
+    const operating_system = body.operating_system as string;
+    const weight = body.weight as string;
+    const main_image = body.main_image as File;
+    const additional_images = body.additional_images as File[];
 
-    if (!name || !category || !brandId || !description || !short_description || !price || !stock_quantity || !product_condition || !sku || !model || !main_image) {
+    if (!name || !category_input || !brand_input || !description || !short_description || !price || !stock_quantity || !product_condition || !sku || !model) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
     // Find the brand by name or create a new one if it doesn't exist
-    let brand = brands.find(b => b.name.toLowerCase() === brandId.toLowerCase());
+    let brand = brands.find(b => b.name.toLowerCase() === brand_input.toLowerCase());
     if (!brand) {
       brand = {
         id: brands.length + 1,
-        name: brandId,
-        display_name: brandId.charAt(0).toUpperCase() + brandId.slice(1),
-        description: `Brand for ${brandId}`,
-        logo: `https://cloudinary.com/.../brand_logos/${brandId}_logo.jpg`,
+        name: brand_input,
+        display_name: brand_input.charAt(0).toUpperCase() + brand_input.slice(1),
+        description: `Brand for ${brand_input}`,
+        logo: `https://cloudinary.com/.../brand_logos/${brand_input}_logo.jpg`,
         website: '',
         is_active: true,
         product_count: 0,
@@ -61,14 +61,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Mock image uploads (in a real app, upload to Cloudinary and get URLs)
-    const mainImageUrl = `https://cloudinary.com/.../product_images/${name.replace(/\s+/g, '_').toLowerCase()}_main.jpg`;
-    const additionalImageUrls = additional_images.map((_, index) => ({
+    const mainImageUrl = main_image ? `https://cloudinary.com/.../product_images/${name.replace(/\s+/g, '_').toLowerCase()}_main.jpg` : null;
+    const additionalImageUrls = additional_images ? additional_images.map((_, index) => ({
       id: products.length * 10 + index + 1,
       image: `https://cloudinary.com/.../product_images/${name.replace(/\s+/g, '_').toLowerCase()}_${index + 1}.jpg`,
       alt_text: `${name} - Image ${index + 1}`,
       is_primary: false,
       order: index + 1,
-    }));
+    })) : [];
 
     const newProduct = {
       id: products.length + 1,
@@ -76,10 +76,10 @@ export async function POST(request: NextRequest) {
       slug: name.toLowerCase().replace(/\s+/g, '-'),
       category: {
         id: 1, // Mock category ID
-        name: category,
-        display_name: category.charAt(0).toUpperCase() + category.slice(1),
-        description: `Latest ${category} and mobile devices`,
-        image: `https://cloudinary.com/.../category_images/${category}.jpg`,
+        name: category_input,
+        display_name: category_input.charAt(0).toUpperCase() + category_input.slice(1),
+        description: `Latest ${category_input} and mobile devices`,
+        image: `https://cloudinary.com/.../category_images/${category_input}.jpg`,
         is_active: true,
         product_count: 15,
         created_at: new Date().toISOString(),
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       battery_specs,
       operating_system,
       weight,
-      main_image: mainImageUrl,
+      main_image: mainImageUrl || null,
       images: additionalImageUrls,
       is_active: true,
       is_featured: false,
