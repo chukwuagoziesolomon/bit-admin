@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // In-memory storage for brands (in a real app, this would be a database)
-let brands: any[] = [];
+const brands: any[] = [];
 
 // DELETE /api/brands/[id] - Delete a brand (Admin only)
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {

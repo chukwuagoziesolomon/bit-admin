@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // In-memory storage for brands (in a real app, this would be a database)
-let brands: any[] = [];
+const brands: any[] = [];
 
 // GET /api/brands/ - List all active brands
 export async function GET() {
