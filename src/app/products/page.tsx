@@ -199,33 +199,44 @@ export default function Products() {
       const token = localStorage.getItem('token');
       const formDataToSend = new FormData();
 
-      const requestBody = {
-        name: formData.name,
-        slug: formData.slug,
-        category_input: formData.category,
-        brand_input: formData.brand,
-        description: formData.description,
-        short_description: formData.short_description,
-        price: formData.price,
-        price_usdt: formData.price_usdt,
-        discount_percentage: formData.discount_percentage,
-        stock_quantity: formData.stock_quantity,
-        product_condition: formData.product_condition,
-        sku: formData.sku,
-        model: formData.model,
-        colors: formData.colors,
-        storage_options: formData.storage_options,
-        is_active: formData.is_active,
-        is_featured: formData.is_featured,
-      };
+      const selectedCategory = categories.find(c => c.id.toString() === formData.category);
+      const categoryName = selectedCategory ? selectedCategory.name : formData.category;
+
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('slug', formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
+      formDataToSend.append('category_input', categoryName);
+      formDataToSend.append('brand_input', formData.brand);
+      formDataToSend.append('description', formData.description);
+      formDataToSend.append('short_description', formData.short_description);
+      formDataToSend.append('price', formData.price);
+      if (formData.price_usdt) formDataToSend.append('price_usdt', formData.price_usdt);
+      formDataToSend.append('discount_percentage', formData.discount_percentage || '0');
+      formDataToSend.append('stock_quantity', formData.is_coupon ? '999999' : (formData.stock_quantity || '0'));
+      formDataToSend.append('product_condition', formData.is_coupon ? 'new' : (formData.product_condition || ''));
+      formDataToSend.append('sku', formData.sku || '');
+      formDataToSend.append('model', formData.model || '');
+      formDataToSend.append('colors', JSON.stringify(formData.colors || []));
+      formDataToSend.append('storage_options', JSON.stringify(formData.storage_options || []));
+      formDataToSend.append('specifications', formData.specifications || '');
+      formDataToSend.append('features', JSON.stringify(formData.features || []));
+      formDataToSend.append('is_active', String(formData.is_active));
+      formDataToSend.append('is_featured', String(formData.is_featured));
+
+      if (mainImage) {
+        formDataToSend.append('main_image', mainImage);
+      }
+      if (additionalImages && additionalImages.length > 0) {
+        additionalImages.forEach((file, idx) => {
+          formDataToSend.append('additional_images', file);
+        });
+      }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Token ${token}`,
         },
-        body: JSON.stringify(requestBody),
+        body: formDataToSend,
       });
 
       const result = await response.json();
