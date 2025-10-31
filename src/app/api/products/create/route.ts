@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // In-memory storage for brands and products (in a real app, this would be a database)
-let brands: any[] = [];
-let products: any[] = [];
+const brands: any[] = [];
+const products: any[] = [];
 
 // POST /api/products/create/ - Create product with brand selection (Admin only)
 export async function POST(request: NextRequest) {
