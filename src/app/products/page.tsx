@@ -9,7 +9,7 @@ import Image from 'next/image';
 interface ProductFormData {
     name: string;
     slug: string;
-    category: string;
+    category_input: string;
     description: string;
     short_description: string;
     price: string;
@@ -31,11 +31,6 @@ interface ProductFormData {
     coupon_value: string;
 }
 
-interface Category {
-  id: number;
-  name: string;
-  display_name: string;
-}
 
 export default function Products() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -49,7 +44,7 @@ export default function Products() {
   const [formData, setFormData] = useState<ProductFormData>({
     name: '',
     slug: '',
-    category: '',
+    category_input: '',
     description: '',
     short_description: '',
     price: '',
@@ -71,38 +66,6 @@ export default function Products() {
     coupon_value: '',
   });
 
-  const [categories, setCategories] = useState<Category[]>([]);
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
-
-  const fetchCategories = async () => {
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch categories');
-      }
-      const result = await response.json();
-      setCategories(result.results || []);
-    } catch (err) {
-      console.error('Failed to fetch categories:', err);
-      // Fallback to hardcoded categories if API fails
-      setCategories([
-        { id: 1, name: 'smartphones', display_name: 'Smartphones' },
-        { id: 2, name: 'laptops', display_name: 'Laptops' },
-        { id: 3, name: 'smartwatches', display_name: 'Smartwatches' },
-        { id: 4, name: 'accessories', display_name: 'Accessories' },
-        { id: 5, name: 'audio', display_name: 'Audio' },
-        { id: 6, name: 'gaming', display_name: 'Gaming' },
-      ]);
-    }
-  };
 
   useEffect(() => {
     if (activeTab === 'list') {
@@ -222,8 +185,7 @@ export default function Products() {
       const token = localStorage.getItem('token');
       const formDataToSend = new FormData();
 
-      const selectedCategory = categories.find(c => c.id.toString() === formData.category);
-      const categoryName = selectedCategory ? selectedCategory.name : formData.category;
+      const categoryName = formData.category_input;
 
       formDataToSend.append('name', formData.name);
       formDataToSend.append('slug', formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
@@ -276,7 +238,7 @@ export default function Products() {
       setFormData({
         name: '',
         slug: '',
-        category: '',
+        category_input: '',
         description: '',
         short_description: '',
         price: '',
@@ -608,20 +570,16 @@ export default function Products() {
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Category *
                   </label>
-                  <select
-                    name="category"
-                    value={formData.category}
+                  <input
+                    type="text"
+                    name="category_input"
+                    value={formData.category_input}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                    placeholder="Enter category name"
                     required
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map(category => (
-                      <option key={category.id} value={category.id}>
-                        {category.display_name}
-                      </option>
-                    ))}
-                  </select>
+                  />
+                  <p className="text-xs text-slate-400 mt-1">Enter the category name (e.g., smartphones, laptops)</p>
                 </div>
 
                 <div className="md:col-span-2">
