@@ -62,7 +62,7 @@ export default function Categories() {
         formDataToSend.append('image', imageFile);
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/add/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/add-category/`, {
         method: 'POST',
         headers: {
           'Authorization': `Token ${token}`,
