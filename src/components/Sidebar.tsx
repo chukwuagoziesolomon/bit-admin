@@ -16,13 +16,15 @@ import {
   Users,
   Menu,
   X,
-  Percent
+  Percent,
+  Folder
 } from 'lucide-react';
 
 const menuItems = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
   { name: 'Banners', icon: Image, href: '/banners' },
   { name: 'Products', icon: Package, href: '/products' },
+  { name: 'Categories', icon: Folder, href: '/categories' },
   { name: 'Daily Deals', icon: Percent, href: '/daily-deals' },
   { name: 'Orders', icon: ShoppingCart, href: '/orders' },
   { name: 'Payments', icon: CreditCard, href: '/payments' },
