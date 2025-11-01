@@ -39,7 +39,6 @@ interface Category {
 
 export default function Products() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [mainImage, setMainImage] = useState<File | null>(null);
   const [additionalImages, setAdditionalImages] = useState<File[]>([]);
@@ -72,16 +71,38 @@ export default function Products() {
     coupon_value: '',
   });
 
+  const [categories, setCategories] = useState<Category[]>([]);
+
   useEffect(() => {
-    setCategories([
-      { id: 1, name: 'smartphones', display_name: 'Smartphones' },
-      { id: 2, name: 'laptops', display_name: 'Laptops' },
-      { id: 3, name: 'smartwatches', display_name: 'Smartwatches' },
-      { id: 4, name: 'accessories', display_name: 'Accessories' },
-      { id: 5, name: 'audio', display_name: 'Audio' },
-      { id: 6, name: 'gaming', display_name: 'Gaming' },
-    ]);
+    fetchCategories();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/categories/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch categories');
+      }
+      const result = await response.json();
+      setCategories(result.results || []);
+    } catch (err) {
+      console.error('Failed to fetch categories:', err);
+      // Fallback to hardcoded categories if API fails
+      setCategories([
+        { id: 1, name: 'smartphones', display_name: 'Smartphones' },
+        { id: 2, name: 'laptops', display_name: 'Laptops' },
+        { id: 3, name: 'smartwatches', display_name: 'Smartwatches' },
+        { id: 4, name: 'accessories', display_name: 'Accessories' },
+        { id: 5, name: 'audio', display_name: 'Audio' },
+        { id: 6, name: 'gaming', display_name: 'Gaming' },
+      ]);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'list') {
