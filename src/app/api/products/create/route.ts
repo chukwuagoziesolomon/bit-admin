@@ -13,32 +13,47 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const body = await request.json();
-    const name = body.name as string;
-    const category_input = body.category_input as string;
-    const brand_input = body.brand_input as string;
-    const description = body.description as string;
-    const short_description = body.short_description as string;
-    const price = parseFloat(body.price as string);
-    const price_usdt = body.price_usdt as string;
-    const discount_percentage = parseInt(body.discount_percentage as string);
-    const stock_quantity = parseInt(body.stock_quantity as string);
-    const product_condition = body.product_condition as string;
-    const sku = body.sku as string;
-    const model = body.model as string;
-    const colors = body.colors;
-    const storage_options = body.storage_options;
-    const display_specs = body.display_specs as string;
-    const chip_specs = body.chip_specs as string;
-    const camera_specs = body.camera_specs as string;
-    const storage_specs = body.storage_specs as string;
-    const battery_specs = body.battery_specs as string;
-    const operating_system = body.operating_system as string;
-    const weight = body.weight as string;
-    const main_image = body.main_image as File;
-    const additional_images = body.additional_images as File[];
+    const formData = await request.formData();
+    const name = formData.get('name') as string;
+    const category_input = formData.get('category_input') as string;
+    const brand_input = formData.get('brand_input') as string;
+    const description = formData.get('description') as string;
+    const short_description = formData.get('short_description') as string;
+    const price = parseFloat(formData.get('price') as string);
+    const price_usdt = formData.get('price_usdt') as string;
+    const discount_percentage = parseInt(formData.get('discount_percentage') as string || '0');
+    const stock_quantity = parseInt(formData.get('stock_quantity') as string);
+    const product_condition = formData.get('product_condition') as string;
+    const sku = formData.get('sku') as string;
+    const model = formData.get('model') as string;
+    const colors = JSON.parse(formData.get('colors') as string || '[]');
+    const storage_options = JSON.parse(formData.get('storage_options') as string || '[]');
+    const ram_options = JSON.parse(formData.get('ram_options') as string || '[]');
+    const specifications = formData.get('specifications') as string;
+    const features = JSON.parse(formData.get('features') as string || '[]');
+    const is_active = formData.get('is_active') === 'true';
+    const is_featured = formData.get('is_featured') === 'true';
+    const main_image = formData.get('main_image') as File;
+    const additional_images = formData.getAll('additional_images') as File[];
 
-    if (!name || !category_input || !brand_input || !description || !short_description || !price || !stock_quantity || !product_condition || !sku || !model) {
+    // Optional fields for detailed specs
+    const display_specs = formData.get('display_specs') as string;
+    const chip_specs = formData.get('chip_specs') as string;
+    const camera_specs = formData.get('camera_specs') as string;
+    const storage_specs = formData.get('storage_specs') as string;
+    const battery_specs = formData.get('battery_specs') as string;
+    const operating_system = formData.get('operating_system') as string;
+    const weight = formData.get('weight') as string;
+
+    // Validate category_input
+    const validCategories = ['smartphones', 'laptops', 'smartwatches', 'accessories', 'audio', 'gaming'];
+    if (!validCategories.includes(category_input)) {
+      return NextResponse.json({
+        error: 'Invalid category_input. Must be one of: smartphones, laptops, smartwatches, accessories, audio, gaming'
+      }, { status: 400 });
+    }
+
+    if (!name || !category_input || !brand_input || !description || !short_description || !price || !stock_quantity || !product_condition) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
@@ -96,6 +111,9 @@ export async function POST(request: NextRequest) {
       model,
       colors,
       storage_options,
+      ram_options,
+      specifications,
+      features,
       display_specs,
       chip_specs,
       camera_specs,
@@ -105,8 +123,8 @@ export async function POST(request: NextRequest) {
       weight,
       main_image: mainImageUrl || null,
       images: additionalImageUrls,
-      is_active: true,
-      is_featured: false,
+      is_active,
+      is_featured,
       is_on_sale: false,
       is_in_stock: stock_quantity > 0,
       is_out_of_stock: stock_quantity === 0,

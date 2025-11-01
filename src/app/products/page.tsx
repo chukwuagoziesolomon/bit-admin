@@ -74,10 +74,12 @@ export default function Products() {
 
   useEffect(() => {
     setCategories([
-      { id: 1, name: 'phones', display_name: 'Phones' },
+      { id: 1, name: 'smartphones', display_name: 'Smartphones' },
       { id: 2, name: 'laptops', display_name: 'Laptops' },
-      { id: 3, name: 'tablets', display_name: 'Tablets' },
+      { id: 3, name: 'smartwatches', display_name: 'Smartwatches' },
       { id: 4, name: 'accessories', display_name: 'Accessories' },
+      { id: 5, name: 'audio', display_name: 'Audio' },
+      { id: 6, name: 'gaming', display_name: 'Gaming' },
     ]);
   }, []);
 
