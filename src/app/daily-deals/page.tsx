@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Percent, Plus, Upload, X, Edit, Eye, Package, AlertTriangle, Calendar, Clock, Menu } from 'lucide-react';
+import { Percent, Plus, Edit, Eye, Package, AlertTriangle, Calendar, Clock, Menu } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 
 interface DailyDealFormData {
+  product: string;
   title: string;
   subtitle: string;
   deal_price: string;
@@ -15,7 +16,7 @@ interface DailyDealFormData {
   end_time: string;
   is_featured: boolean;
   max_quantity: string;
-  deal_image: File | null;
+  deal_image: string;
   deal_description: string;
   terms_and_conditions: string;
 }
@@ -50,10 +51,12 @@ export default function DailyDeals() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
   const [deals, setDeals] = useState<DailyDeal[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [dealsLoading, setDealsLoading] = useState(false);
-  const [dealImage, setDealImage] = useState<File | null>(null);
+  const [productsLoading, setProductsLoading] = useState(false);
   const [formData, setFormData] = useState<DailyDealFormData>({
+    product: '',
     title: '',
     subtitle: '',
     deal_price: '',
@@ -63,18 +66,40 @@ export default function DailyDeals() {
     end_time: '',
     is_featured: false,
     max_quantity: '',
-    deal_image: null,
+    deal_image: '',
     deal_description: '',
     terms_and_conditions: '',
   });
 
   useEffect(() => {
+    fetchProducts();
     if (activeTab === 'list') {
       fetchDeals();
     }
   }, [activeTab]);
 
 
+
+  const fetchProducts = async () => {
+    setProductsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+      const result = await response.json();
+      setProducts(result.results || []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch products');
+    } finally {
+      setProductsLoading(false);
+    }
+  };
 
   const fetchDeals = async () => {
     setDealsLoading(true);
@@ -107,15 +132,6 @@ export default function DailyDeals() {
     }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    setDealImage(files[0]);
-  };
-
-  const removeImage = () => {
-    setDealImage(null);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,24 +139,23 @@ export default function DailyDeals() {
 
     try {
       const token = localStorage.getItem('token');
-      const formDataToSend = new FormData();
+      const dataToSend = { ...formData };
 
-      Object.entries(formData).forEach(([key, value]) => {
-        if (key !== 'product' && value !== '' && value !== undefined && value !== null) {
-          formDataToSend.append(key, String(value));
+      // Remove empty fields
+      Object.keys(dataToSend).forEach(key => {
+        const value = (dataToSend as any)[key];
+        if (value === '' || value === undefined || value === null) {
+          delete (dataToSend as any)[key];
         }
       });
-
-      if (dealImage) {
-        formDataToSend.append('deal_image', dealImage);
-      }
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/deals/create/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: formDataToSend,
+        body: JSON.stringify(dataToSend),
       });
 
       const result = await response.json();
@@ -155,6 +170,7 @@ export default function DailyDeals() {
       toast.success('Daily deal created successfully!');
 
       setFormData({
+        product: '',
         title: '',
         subtitle: '',
         deal_price: '',
@@ -164,11 +180,10 @@ export default function DailyDeals() {
         end_time: '',
         is_featured: false,
         max_quantity: '',
-        deal_image: null,
+        deal_image: '',
         deal_description: '',
         terms_and_conditions: '',
       });
-      setDealImage(null);
 
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to create daily deal');
@@ -415,7 +430,27 @@ export default function DailyDeals() {
             >
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">
+                    Select Product *
+                  </label>
+                  <select
+                    name="product"
+                    value={formData.product}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                    required
+                  >
+                    <option value="">Choose a product</option>
+                    {products.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name} - {product.sku}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
                     Deal Title *
                   </label>
@@ -572,34 +607,19 @@ export default function DailyDeals() {
                 </div>
               </div>
 
-              {/* Image Upload */}
+              {/* Deal Image URL */}
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Deal Image (Optional)
+                  Deal Image URL (Optional)
                 </label>
-                <div className="border-2 border-dashed border-slate-500 rounded-lg p-4 text-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                    id="dealImage"
-                  />
-                  <label htmlFor="dealImage" className="cursor-pointer">
-                    <Upload className="mx-auto mb-2 text-slate-400" size={32} />
-                    <p className="text-slate-400">Click to upload deal image</p>
-                  </label>
-                  {dealImage && (
-                    <div className="mt-4 flex items-center justify-center gap-2">
-                      <span className="text-white text-sm">{dealImage.name}</span>
-                      <X
-                        size={16}
-                        className="cursor-pointer text-red-400 hover:text-red-300"
-                        onClick={removeImage}
-                      />
-                    </div>
-                  )}
-                </div>
+                <input
+                  type="url"
+                  name="deal_image"
+                  value={formData.deal_image}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                  placeholder="https://example.com/deal-image.jpg"
+                />
               </div>
 
               {/* Settings */}

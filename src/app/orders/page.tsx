@@ -83,6 +83,7 @@ export default function Orders() {
    const [trackingNumber, setTrackingNumber] = useState('');
    const [carrierName, setCarrierName] = useState('');
    const [trackingNotes, setTrackingNotes] = useState('');
+   const [estimatedDelivery, setEstimatedDelivery] = useState('');
    const [refundReason, setRefundReason] = useState('');
    const [refundAmount, setRefundAmount] = useState('');
    const [adminNotes, setAdminNotes] = useState('');
@@ -186,20 +187,29 @@ export default function Orders() {
   };
 
   const updateTracking = async (orderId: string) => {
+    if (!carrierName.trim()) {
+      toast.error('Carrier name is required');
+      return;
+    }
+
     try {
       const token = localStorage.getItem('token');
+      const trackingData: any = {
+        carrier_name: carrierName.trim(),
+      };
+
+      // Add optional fields if provided
+      if (trackingNumber.trim()) trackingData.tracking_number = trackingNumber.trim();
+      if (trackingNotes.trim()) trackingData.tracking_notes = trackingNotes.trim();
+      if (estimatedDelivery) trackingData.estimated_delivery = estimatedDelivery;
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/${orderId}/tracking/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Token ${token}`,
         },
-        body: JSON.stringify({
-          tracking_number: trackingNumber,
-          carrier_name: carrierName,
-          status: 'shipped',
-          tracking_notes: trackingNotes
-        }),
+        body: JSON.stringify(trackingData),
       });
 
       if (!response.ok) {
@@ -213,6 +223,7 @@ export default function Orders() {
       setTrackingNumber('');
       setCarrierName('');
       setTrackingNotes('');
+      setEstimatedDelivery('');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update tracking');
     }
@@ -731,12 +742,13 @@ export default function Orders() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Carrier Name
+                  Carrier Name *
                 </label>
                 <select
                   value={carrierName}
                   onChange={(e) => setCarrierName(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                  required
                 >
                   <option value="">Select carrier</option>
                   <option value="DHL Express">DHL Express</option>
@@ -745,6 +757,19 @@ export default function Orders() {
                   <option value="NIPOST">NIPOST</option>
                   <option value="Other">Other</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Estimated Delivery Date
+                </label>
+                <input
+                  type="date"
+                  value={estimatedDelivery}
+                  onChange={(e) => setEstimatedDelivery(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                  min={new Date().toISOString().split('T')[0]}
+                />
               </div>
 
               <div>
@@ -768,6 +793,7 @@ export default function Orders() {
                   setTrackingNumber('');
                   setCarrierName('');
                   setTrackingNotes('');
+                  setEstimatedDelivery('');
                 }}
                 className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
               >

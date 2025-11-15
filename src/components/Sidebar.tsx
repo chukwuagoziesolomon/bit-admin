@@ -26,6 +26,7 @@ const menuItems = [
   { name: 'Products', icon: Package, href: '/products' },
   { name: 'Categories', icon: Folder, href: '/categories' },
   { name: 'Daily Deals', icon: Percent, href: '/daily-deals' },
+  { name: 'Coupons', icon: Tag, href: '/coupons' },
   { name: 'Orders', icon: ShoppingCart, href: '/orders' },
   { name: 'Payments', icon: CreditCard, href: '/payments' },
   { name: 'Messages', icon: MessageSquare, href: '/messages' },

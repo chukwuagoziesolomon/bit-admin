@@ -13,50 +13,88 @@ interface SiteSettings {
    default_interstate_shipping_fee: number;
    current_admin_state: string;
    current_admin_city: string;
-   interstate_prices: Record<string, number>;
    nigerian_states: string[];
    updated_at: string;
  }
 
-export default function Settings() {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [settings, setSettings] = useState<SiteSettings | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string[]> | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newStateName, setNewStateName] = useState('');
-  const [newStatePrice, setNewStatePrice] = useState('');
+interface InterstatePrice {
+   id: number;
+   state_name: string;
+   shipping_price: string;
+   is_active: boolean;
+   is_free_shipping: boolean;
+   created_at: string;
+   updated_at: string;
+ }
 
-  const updateInterstatePrice = (state: string, price: number) => {
-    if (!settings) return;
-    setSettings({
-      ...settings,
-      interstate_prices: {
-        ...settings.interstate_prices,
-        [state]: price,
-      },
-    });
+export default function Settings() {
+   const [sidebarOpen, setSidebarOpen] = useState(true);
+   const [settings, setSettings] = useState<SiteSettings | null>(null);
+   const [interstatePrices, setInterstatePrices] = useState<InterstatePrice[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [saving, setSaving] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const [validationErrors, setValidationErrors] = useState<Record<string, string[]> | null>(null);
+   const [isModalOpen, setIsModalOpen] = useState(false);
+   const [newStateName, setNewStateName] = useState('');
+   const [newStatePrice, setNewStatePrice] = useState('');
+   const [newStateActive, setNewStateActive] = useState(true);
+   const [newStateFreeShipping, setNewStateFreeShipping] = useState(false);
+
+  const fetchInterstatePrices = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/?per_page=1000`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to fetch interstate prices');
+      }
+      const result = await response.json();
+      setInterstatePrices(result.prices || []);
+    } catch (err) {
+      console.error('Error fetching interstate prices:', err);
+    }
   };
 
-  const removeInterstatePrice = (state: string) => {
-    if (!settings) return;
-    const newPrices = { ...settings.interstate_prices };
-    delete newPrices[state];
-    setSettings({
-      ...settings,
-      interstate_prices: newPrices,
-    });
+  const updateInterstatePrice = async (id: number, updates: Partial<InterstatePrice>) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/${id}/update/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,
+        },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update price');
+      }
+      const result = await response.json();
+      setInterstatePrices(prev => prev.map(p => p.id === id ? result.price : p));
+      toast.success('Price updated successfully');
+    } catch (err) {
+      toast.error('Failed to update price');
+    }
+  };
+
+  const removeInterstatePrice = async (id: number) => {
+    // Since no delete API, set inactive
+    await updateInterstatePrice(id, { is_active: false });
   };
 
   const openAddStateModal = () => {
     setNewStateName('');
     setNewStatePrice('');
+    setNewStateActive(true);
+    setNewStateFreeShipping(false);
     setIsModalOpen(true);
   };
 
-  const handleAddState = () => {
+  const handleAddState = async () => {
     const stateName = newStateName.trim();
     const price = parseFloat(newStatePrice);
 
@@ -70,30 +108,52 @@ export default function Settings() {
       return;
     }
 
-    if (settings?.interstate_prices[stateName]) {
-      toast.error('State already exists!');
-      return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/create/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,
+        },
+        body: JSON.stringify({
+          state_name: stateName,
+          shipping_price: price.toString(),
+          is_active: newStateActive,
+          is_free_shipping: newStateFreeShipping,
+        }),
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create price');
+      }
+      const result = await response.json();
+      setInterstatePrices(prev => [...prev, result.price]);
+      setIsModalOpen(false);
+      toast.success(`Added ${stateName} with price ₦${price.toLocaleString()}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to add state');
     }
-
-    updateInterstatePrice(stateName, price);
-    setIsModalOpen(false);
-    toast.success(`Added ${stateName} with price ₦${price.toLocaleString()}`);
   };
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/site/settings/`, {
+        // Fetch settings
+        const settingsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/site/settings/`, {
           headers: {
             'Authorization': `Token ${token}`,
           },
         });
-        if (!response.ok) {
+        if (!settingsResponse.ok) {
           throw new Error('Failed to fetch settings');
         }
-        const result: SiteSettings = await response.json();
-        setSettings(result);
+        const settingsResult: SiteSettings = await settingsResponse.json();
+        setSettings(settingsResult);
+
+        // Fetch interstate prices
+        await fetchInterstatePrices();
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -101,7 +161,7 @@ export default function Settings() {
       }
     };
 
-    fetchSettings();
+    fetchData();
   }, []);
 
   const handleSave = async () => {
@@ -256,25 +316,45 @@ export default function Settings() {
               <h3 className="text-lg font-semibold text-white mb-4">Interstate Shipment Prices</h3>
               <div className="bg-slate-600 p-4 rounded-lg">
                 <div className="space-y-4 mb-4">
-                  {Object.entries(settings.interstate_prices || {}).map(([state, price]) => (
-                    <div key={state} className="flex items-center gap-4 p-3 bg-slate-700 rounded">
-                      <span className="text-slate-300 w-32 font-medium">{state}:</span>
+                  {interstatePrices.map((price) => (
+                    <div key={price.id} className="flex items-center gap-4 p-3 bg-slate-700 rounded">
+                      <span className="text-slate-300 w-32 font-medium">{price.state_name}:</span>
                       <div className="flex-1 flex items-center gap-2">
                         <span className="text-slate-400">₦</span>
                         <input
                           type="number"
-                          value={price}
-                          onChange={(e) => updateInterstatePrice(state, parseFloat(e.target.value) || 0)}
+                          value={price.shipping_price}
+                          onChange={(e) => updateInterstatePrice(price.id, { shipping_price: e.target.value })}
                           className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
                           min="0"
                           step="0.01"
                         />
                       </div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-1 text-sm text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={price.is_active}
+                            onChange={(e) => updateInterstatePrice(price.id, { is_active: e.target.checked })}
+                            className="rounded"
+                          />
+                          Active
+                        </label>
+                        <label className="flex items-center gap-1 text-sm text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={price.is_free_shipping}
+                            onChange={(e) => updateInterstatePrice(price.id, { is_free_shipping: e.target.checked })}
+                            className="rounded"
+                          />
+                          Free
+                        </label>
+                      </div>
                       <button
-                        onClick={() => removeInterstatePrice(state)}
+                        onClick={() => removeInterstatePrice(price.id)}
                         className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
                       >
-                        Remove
+                        Deactivate
                       </button>
                     </div>
                   ))}
@@ -351,6 +431,27 @@ export default function Settings() {
                   min="0"
                   step="0.01"
                 />
+              </div>
+
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={newStateActive}
+                    onChange={(e) => setNewStateActive(e.target.checked)}
+                    className="rounded"
+                  />
+                  Active
+                </label>
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={newStateFreeShipping}
+                    onChange={(e) => setNewStateFreeShipping(e.target.checked)}
+                    className="rounded"
+                  />
+                  Free Shipping
+                </label>
               </div>
             </div>
 

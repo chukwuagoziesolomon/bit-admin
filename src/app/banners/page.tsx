@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Menu, Upload, Image as ImageIcon } from 'lucide-react';
+import { Menu, Upload, Image as ImageIcon, Trash2, Eye, RefreshCw } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
+import Image from 'next/image';
 
 interface Product {
   id: number;
@@ -16,6 +17,19 @@ interface Category {
   id: number;
   name: string;
   display_name: string;
+}
+
+interface Banner {
+  id: number;
+  title: string;
+  subtitle: string;
+  banner_type: string;
+  link_type: string;
+  image: string;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 interface BannerFormData {
@@ -35,8 +49,12 @@ interface BannerFormData {
 
 export default function Banners() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'create' | 'list'>('list');
   const [loading, setLoading] = useState(false);
+  const [bannersLoading, setBannersLoading] = useState(false);
+  const [deleting, setDeleting] = useState<number | null>(null);
   const [bannerImage, setBannerImage] = useState<File | null>(null);
+  const [banners, setBanners] = useState<Banner[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<BannerFormData>({
@@ -68,7 +86,60 @@ export default function Banners() {
       { id: 3, name: 'tablets', display_name: 'Tablets' },
       { id: 4, name: 'accessories', display_name: 'Accessories' },
     ]);
+
+    fetchBanners();
   }, []);
+
+  const fetchBanners = async () => {
+    setBannersLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/banners/`, {
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch banners');
+      }
+
+      const data = await response.json();
+      setBanners(data.results || data || []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to fetch banners');
+    } finally {
+      setBannersLoading(false);
+    }
+  };
+
+  const deleteBanner = async (bannerId: number) => {
+    if (!window.confirm('Are you sure you want to delete this banner?')) {
+      return;
+    }
+
+    setDeleting(bannerId);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/banners/${bannerId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete banner');
+      }
+
+      toast.success('Banner deleted successfully!');
+      fetchBanners();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete banner');
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -182,7 +253,7 @@ export default function Banners() {
           <Menu size={20} />
         </button>
 
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <motion.div
             className="flex items-center gap-4 mb-8"
             initial={{ opacity: 0, x: -20 }}
@@ -191,18 +262,174 @@ export default function Banners() {
           >
             <ImageIcon className="text-blue-400" size={32} />
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold gradient-text">Create New Banner</h1>
-              <p className="text-slate-400">Add a new banner to your website</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">Banners Management</h1>
+              <p className="text-slate-400">Create and manage website banners</p>
             </div>
           </motion.div>
 
-          <motion.form
-            onSubmit={handleSubmit}
-            className="bg-slate-700 p-6 rounded-lg shadow-lg space-y-6"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.6 }}
-          >
+          {/* Tab Navigation */}
+          <div className="flex gap-4 mb-8">
+            <button
+              onClick={() => setActiveTab('list')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                activeTab === 'list'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              <Eye size={20} />
+              View Banners
+            </button>
+            <button
+              onClick={() => setActiveTab('create')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
+                activeTab === 'create'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              }`}
+            >
+              <Upload size={20} />
+              Create Banner
+            </button>
+          </div>
+
+          {/* List View */}
+          {activeTab === 'list' && (
+            <motion.div
+              className="bg-slate-700 rounded-lg shadow-lg overflow-hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+            >
+              <div className="px-6 py-4 bg-slate-600 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-white">All Banners</h2>
+                  <p className="text-slate-400 text-sm">View and manage all website banners</p>
+                </div>
+                <button
+                  onClick={fetchBanners}
+                  disabled={bannersLoading}
+                  className="p-2 hover:bg-slate-700 rounded-lg text-slate-300 disabled:opacity-50"
+                >
+                  <RefreshCw size={20} className={bannersLoading ? 'animate-spin' : ''} />
+                </button>
+              </div>
+
+              {bannersLoading ? (
+                <div className="flex items-center justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+                </div>
+              ) : banners.length === 0 ? (
+                <div className="text-center p-8">
+                  <ImageIcon className="mx-auto mb-4 text-slate-400" size={48} />
+                  <p className="text-slate-400">No banners found</p>
+                  <p className="text-slate-500 text-sm mt-2">Create your first banner to get started</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-slate-600">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Image
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Title
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Type
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Status
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Order
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-600">
+                      {banners.map((banner, index) => (
+                        <motion.tr
+                          key={banner.id}
+                          className="hover:bg-slate-600 transition-colors"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05, duration: 0.4 }}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-slate-600">
+                              {banner.image && (
+                                <Image
+                                  src={banner.image}
+                                  alt={banner.title}
+                                  fill
+                                  className="object-cover"
+                                />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div>
+                              <div className="text-sm font-medium text-white">{banner.title}</div>
+                              <div className="text-xs text-slate-400">{banner.subtitle}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="px-2 py-1 text-xs font-medium bg-slate-600 text-slate-300 rounded">
+                              {banner.banner_type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                banner.is_active
+                                  ? 'bg-green-600 text-white'
+                                  : 'bg-red-600 text-white'
+                              }`}
+                            >
+                              {banner.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-slate-300">{banner.display_order}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => deleteBanner(banner.id)}
+                                disabled={deleting === banner.id}
+                                className="text-red-400 hover:text-red-300 disabled:text-gray-500 disabled:opacity-50 transition-colors"
+                                title="Delete Banner"
+                              >
+                                {deleting === banner.id ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-400"></div>
+                                ) : (
+                                  <Trash2 size={16} />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* Create Form */}
+          {activeTab === 'create' && (
+            <motion.form
+              onSubmit={handleSubmit}
+              className="bg-slate-700 p-6 rounded-lg shadow-lg space-y-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+            >
             {/* Basic Information */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -463,7 +690,8 @@ export default function Banners() {
                 )}
               </button>
             </div>
-          </motion.form>
+            </motion.form>
+          )}
         </div>
       </main>
 
