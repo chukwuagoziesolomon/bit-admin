@@ -244,7 +244,7 @@ export default function Products() {
       const token = localStorage.getItem('token');
 
       let body: FormData | string;
-      let headers: Record<string, string> = {
+      const headers: Record<string, string> = {
         'Authorization': `Token ${token}`,
       };
 

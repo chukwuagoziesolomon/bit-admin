@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Menu, Users, Shield, UserCheck, Calendar, TrendingUp, UserPlus, Clock } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
@@ -120,20 +120,7 @@ export default function UsersPage() {
    const [waitlistDateFrom, setWaitlistDateFrom] = useState('');
    const [waitlistDateTo, setWaitlistDateTo] = useState('');
 
-  useEffect(() => {
-    if (activeTab === 'users') {
-      fetchUsers();
-    } else {
-      fetchWaitlist();
-    }
-  }, [
-    activeTab,
-    usersCurrentPage, usersPerPage, usersSearchQuery, usersActiveFilter,
-    waitlistCurrentPage, waitlistPerPage, waitlistSearchQuery, waitlistDateFrom, waitlistDateTo
-  ]);
-
-  // Move functions inside useEffect or wrap with useCallback to fix dependency warning
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setUsersLoading(true);
       const token = localStorage.getItem('token');
@@ -160,9 +147,9 @@ export default function UsersPage() {
     } finally {
       setUsersLoading(false);
     }
-  };
+  }, [usersCurrentPage, usersPerPage, usersSearchQuery, usersActiveFilter]);
 
-  const fetchWaitlist = async () => {
+  const fetchWaitlist = useCallback(async () => {
     try {
       setWaitlistLoading(true);
       const token = localStorage.getItem('token');
@@ -190,8 +177,19 @@ export default function UsersPage() {
     } finally {
       setWaitlistLoading(false);
     }
-  };
+  }, [waitlistCurrentPage, waitlistPerPage, waitlistSearchQuery, waitlistDateFrom, waitlistDateTo]);
 
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchUsers();
+    } else {
+      fetchWaitlist();
+    }
+  }, [
+    activeTab, fetchUsers, fetchWaitlist,
+    usersCurrentPage, usersPerPage, usersSearchQuery, usersActiveFilter,
+    waitlistCurrentPage, waitlistPerPage, waitlistSearchQuery, waitlistDateFrom, waitlistDateTo
+  ]);
 
   const getRoleBadge = (user: User) => {
     if (user.is_superuser) {

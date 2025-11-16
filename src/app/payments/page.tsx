@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Menu, CreditCard, DollarSign, TrendingUp, Search, Filter, Calendar } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
@@ -67,11 +67,7 @@ export default function Payments() {
    const [currentPage, setCurrentPage] = useState(1);
    const [perPage, setPerPage] = useState(20);
 
-  useEffect(() => {
-    fetchPayments();
-  }, [searchTerm, statusFilter, methodFilter, dateFrom, dateTo, currentPage, perPage]);
-
-  const fetchPayments = async () => {
+  const fetchPayments = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
@@ -103,7 +99,11 @@ export default function Payments() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, statusFilter, methodFilter, dateFrom, dateTo, currentPage, perPage]);
+
+  useEffect(() => {
+    fetchPayments();
+  }, [fetchPayments]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
