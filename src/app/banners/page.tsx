@@ -30,6 +30,10 @@ interface Banner {
   display_order: number;
   created_at: string;
   updated_at: string;
+  external_url?: string;
+  button_text?: string;
+  target_product?: string | number;
+  target_category?: string | number;
 }
 
 interface BannerFormData {
@@ -54,6 +58,8 @@ export default function Banners() {
   const [bannersLoading, setBannersLoading] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [bannerImage, setBannerImage] = useState<File | null>(null);
+  const [editingBannerId, setEditingBannerId] = useState<number | null>(null);
+  const [existingBannerImageUrl, setExistingBannerImageUrl] = useState<string | null>(null);
   const [banners, setBanners] = useState<Banner[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -162,6 +168,28 @@ export default function Banners() {
     setBannerImage(null);
   };
 
+  const editBanner = (banner: Banner) => {
+    setActiveTab('create');
+    setEditingBannerId(banner.id);
+    setFormData({
+      title: banner.title || '',
+      subtitle: banner.subtitle || '',
+      banner_type: banner.banner_type || 'hero',
+      link_type: banner.link_type || 'none',
+      target_product: '',
+      target_category: '',
+      external_url: banner.external_url || '',
+      button_text: banner.button_text || 'Shop Now',
+      is_active: !!banner.is_active,
+      display_order: String(banner.display_order || 0),
+      start_date: '',
+      end_date: '',
+    });
+    setBannerImage(null);
+    setExistingBannerImageUrl(banner.image || null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -177,15 +205,25 @@ export default function Banners() {
         }
       });
 
-      // Add image
+      // Ensure external_url is explicitly included when provided
+      if (formData.external_url) formDataToSend.append('external_url', formData.external_url);
+
+      // Add image (allow using existing image URL when editing)
       if (bannerImage) {
         formDataToSend.append('image', bannerImage);
-      } else {
+      } else if (existingBannerImageUrl) {
+        formDataToSend.append('image_url', existingBannerImageUrl);
+      } else if (!editingBannerId) {
         throw new Error('Banner image is required');
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/banners/`, {
-        method: 'POST',
+      // Determine endpoint and method for create vs edit
+      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/banners`;
+      const endpoint = editingBannerId ? `${baseUrl}/${editingBannerId}/` : `${baseUrl}/`;
+      const method = editingBannerId ? 'PATCH' : 'POST';
+
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -398,6 +436,13 @@ export default function Banners() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex gap-2">
+                              <button
+                                onClick={() => editBanner(banner)}
+                                className="text-blue-400 hover:text-blue-300 transition-colors"
+                                title="Edit Banner"
+                              >
+                                <ImageIcon size={16} />
+                              </button>
                               <button
                                 onClick={() => deleteBanner(banner.id)}
                                 disabled={deleting === banner.id}

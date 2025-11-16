@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Menu, Plus, Upload, X, Edit, Eye, Package, AlertTriangle } from 'lucide-react';
+import { Menu, Plus, Upload, X, Edit, Eye, Package, AlertTriangle, Trash2 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Image from 'next/image';
 
@@ -37,6 +37,8 @@ export default function Products() {
   const [loading, setLoading] = useState(false);
   const [mainImage, setMainImage] = useState<File | null>(null);
   const [additionalImages, setAdditionalImages] = useState<File[]>([]);
+  const [editingProductId, setEditingProductId] = useState<number | null>(null);
+  const [existingMainImageUrl, setExistingMainImageUrl] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
   const [products, setProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -156,9 +158,66 @@ export default function Products() {
 
     if (isMain) {
       setMainImage(files[0]);
+      setExistingMainImageUrl(null);
     } else {
       const newImages = Array.from(files);
       setAdditionalImages(prev => [...prev, ...newImages].slice(0, 5));
+    }
+  };
+
+  const editProduct = (product: any) => {
+    // populate form for editing
+    setActiveTab('create');
+    setEditingProductId(product.id);
+    setFormData({
+      name: product.name || '',
+      slug: product.slug || '',
+      category_input: product.category?.name || product.category?.display_name || '',
+      description: product.description || '',
+      short_description: product.short_description || '',
+      price: String(product.price || ''),
+      price_usdt: String(product.price_usdt || ''),
+      discount_percentage: String(product.discount_percentage || ''),
+      stock_quantity: String(product.stock_quantity || ''),
+      product_condition: product.product_condition || '',
+      sku: product.sku || '',
+      brand: product.brand || '',
+      model: product.model || '',
+      colors: product.colors || [],
+      storage_options: product.storage_options || [],
+      ram_options: product.ram_options || [],
+      specifications: product.specifications || '',
+      features: product.features || [],
+      is_featured: !!product.is_featured,
+      is_active: !!product.is_active,
+      is_coupon: !!product.is_coupon,
+      coupon_value: String(product.coupon_value || ''),
+    });
+
+    setMainImage(null);
+    setAdditionalImages([]);
+    setExistingMainImageUrl(product.main_image || null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const deleteProduct = async (productId: number) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/${productId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error('Failed to delete product');
+      toast.success('Product deleted successfully');
+      fetchProducts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete product');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -208,6 +267,7 @@ export default function Products() {
         if (formData.description) formDataToSend.append('description', formData.description);
         if (formData.short_description) formDataToSend.append('short_description', formData.short_description);
         if (formData.discount_percentage) formDataToSend.append('discount_percentage', formData.discount_percentage);
+        if (formData.price_usdt) formDataToSend.append('price_usdt', formData.price_usdt);
         
         formDataToSend.append('features', JSON.stringify(formData.features || []));
         formDataToSend.append('colors', JSON.stringify(formData.colors || []));
@@ -218,6 +278,9 @@ export default function Products() {
         // Always include the main image for coupons
         if (mainImage) {
           formDataToSend.append('main_image', mainImage);
+        } else if (existingMainImageUrl) {
+          // If editing and no new file selected, send existing image URL
+          formDataToSend.append('main_image_url', existingMainImageUrl);
         }
         if (additionalImages && additionalImages.length > 0) {
           additionalImages.forEach((file, idx) => {
@@ -253,6 +316,9 @@ export default function Products() {
         if (mainImage) {
           formDataToSend.append('main_image', mainImage);
         }
+        else if (existingMainImageUrl) {
+          formDataToSend.append('main_image_url', existingMainImageUrl);
+        }
         if (additionalImages && additionalImages.length > 0) {
           additionalImages.forEach((file, idx) => {
             formDataToSend.append('additional_images', file);
@@ -262,8 +328,13 @@ export default function Products() {
         body = formDataToSend;
       }
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/`, {
-        method: 'POST',
+      // choose endpoint and method depending on whether we're editing
+      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products`;
+      const endpoint = editingProductId ? `${baseUrl}/${editingProductId}/` : `${baseUrl}/`;
+      const method = editingProductId ? 'PATCH' : 'POST';
+
+      const response = await fetch(endpoint, {
+        method,
         headers: {
           'Authorization': `Token ${token}`,
         },
@@ -442,13 +513,19 @@ export default function Products() {
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <Image
-                                src={product.main_image}
-                                alt={product.name}
-                                width={48}
-                                height={48}
-                                className="w-12 h-12 rounded-lg object-cover mr-3"
-                              />
+                              {product.main_image ? (
+                                <Image
+                                  src={product.main_image}
+                                  alt={product.name}
+                                  width={48}
+                                  height={48}
+                                  className="w-12 h-12 rounded-lg object-cover mr-3"
+                                />
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-slate-600 mr-3 flex items-center justify-center">
+                                  <Package className="text-slate-400" size={24} />
+                                </div>
+                              )}
                               <div>
                                 <div className="text-sm font-medium text-white">{product.name}</div>
                                 <div className="text-sm text-slate-400">{product.sku}</div>
@@ -490,10 +567,18 @@ export default function Products() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex gap-2">
                               <button
+                                onClick={() => editProduct(product)}
                                 className="text-blue-400 hover:text-blue-300 transition-colors"
                                 title="Edit Product"
                               >
                                 <Edit size={16} />
+                              </button>
+                              <button
+                                onClick={() => deleteProduct(product.id)}
+                                className="text-red-400 hover:text-red-300 transition-colors"
+                                title="Delete Product"
+                              >
+                                <Trash2 size={16} />
                               </button>
                               <button
                                 className="text-green-400 hover:text-green-300 transition-colors"
