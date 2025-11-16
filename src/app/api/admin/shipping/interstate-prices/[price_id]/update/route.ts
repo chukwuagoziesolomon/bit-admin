@@ -14,12 +14,12 @@ const interstatePrices: any[] = [
 ];
 
 // PUT/PATCH /api/admin/shipping/interstate-prices/{price_id}/update/ - Update interstate shipping price (partial update)
-export async function PUT(request: NextRequest, { params }: { params: { price_id: string } }) {
-  return handleUpdate(request, params);
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {
+  return handleUpdate(request, await params);
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { price_id: string } }) {
-  return handleUpdate(request, params);
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {
+  return handleUpdate(request, await params);
 }
 
 async function handleUpdate(request: NextRequest, params: { price_id: string }) {

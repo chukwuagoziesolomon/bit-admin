@@ -14,14 +14,15 @@ const interstatePrices: any[] = [
 ];
 
 // GET /api/admin/shipping/interstate-prices/{price_id}/ - Get specific interstate shipping price
-export async function GET(request: NextRequest, { params }: { params: { price_id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {
   // Mock admin authentication check
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Token ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const price_id = parseInt(params.price_id);
+  const resolvedParams = await params;
+  const price_id = parseInt(resolvedParams.price_id);
   if (isNaN(price_id)) {
     return NextResponse.json({ error: 'Invalid price ID' }, { status: 400 });
   }
