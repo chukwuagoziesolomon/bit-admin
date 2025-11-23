@@ -17,8 +17,10 @@ import {
   Menu,
   X,
   Percent,
-  Folder
+  Folder,
+  LogOut
 } from 'lucide-react';
+import { logout } from '@/lib/auth';
 
 const menuItems = [
   { name: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
@@ -118,26 +120,13 @@ export default function Sidebar({ isOpen = false, onToggle }: SidebarProps) {
         {!collapsed && (
           <>
             <motion.button
-              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors mb-4"
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-lg transition-colors mb-4 flex items-center justify-center gap-2"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.9 }}
-              onClick={async () => {
-                try {
-                  const token = localStorage.getItem('token');
-                  await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/logout/`, {
-                    method: 'POST',
-                    headers: {
-                      'Authorization': `Token ${token}`,
-                    },
-                  });
-                  localStorage.removeItem('token');
-                  window.location.href = '/';
-                } catch (error) {
-                  console.error('Logout failed', error);
-                }
-              }}
+              onClick={() => logout()}
             >
+              <LogOut size={18} />
               Logout
             </motion.button>
             <motion.div

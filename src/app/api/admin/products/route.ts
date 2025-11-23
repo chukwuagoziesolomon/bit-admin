@@ -1,6 +1,65 @@
 import { NextRequest, NextResponse } from 'next/server';
 // import { db } from '@/lib/db'; // Import your database connection
 
+// POST /api/admin/products/ - Create a new product
+export async function POST(request: NextRequest) {
+  try {
+    // Admin authentication check
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Token ')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { name, category, brand, description, short_description, price, sku, stock_quantity, product_condition, is_active = true, is_featured = false, is_coupon = false, coupon_value } = body;
+
+    // Validate required fields
+    const errors: { [key: string]: string[] } = {};
+
+    if (!name) errors.name = ['This field is required.'];
+    if (!category) errors.category = ['This field is required.'];
+    if (!brand) errors.brand = ['This field is required.'];
+    if (!description) errors.description = ['This field is required.'];
+    if (!short_description) errors.short_description = ['This field is required.'];
+    if (!price) errors.price = ['This field is required.'];
+    if (!sku) errors.sku = ['This field is required.'];
+    if (!stock_quantity && stock_quantity !== 0) errors.stock_quantity = ['This field is required.'];
+    if (!is_coupon && !product_condition) errors.product_condition = ['This field is required.'];
+    if (is_coupon && !coupon_value) errors.coupon_value = ['This field is required for coupon products.'];
+
+    if (Object.keys(errors).length > 0) {
+      return NextResponse.json(errors, { status: 400 });
+    }
+
+    // Mock product creation - replace with actual database insert
+    const newProduct = {
+      id: Date.now(), // Mock ID
+      name,
+      sku,
+      price: price.toString(),
+      coupon_value: is_coupon ? coupon_value : null,
+      is_coupon,
+      category: typeof category === 'object' ? category : { id: category, name: category, display_name: category },
+      brand: typeof brand === 'object' ? brand : { id: brand, name: brand, display_name: brand },
+      description,
+      short_description,
+      stock_quantity,
+      product_condition,
+      is_active,
+      is_featured,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // In a real app, save to database here
+
+    return NextResponse.json(newProduct, { status: 201 });
+  } catch (error) {
+    console.error('Error creating product:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // GET /api/admin/products/ - Get all products
 export async function GET(request: NextRequest) {
   try {

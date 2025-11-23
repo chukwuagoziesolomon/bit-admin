@@ -3,14 +3,20 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { setAuthToken } from '@/lib/auth';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    setLoading(true);
+    
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/admin/login/`, {
         method: 'POST',
@@ -20,25 +26,30 @@ export default function Login() {
         body: JSON.stringify({ email, password }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
+      const data = await response.json();
+
+      if (response.ok && data.token) {
         if (data.is_admin) {
-          // Store token in localStorage
-          localStorage.setItem('token', data.token);
+          // Store token using auth helper
+          setAuthToken(data.token);
           router.push('/dashboard');
         } else {
-          alert('Not authorized as admin');
+          setError('Admin privileges required');
         }
+      } else if (response.status === 403) {
+        setError('Admin privileges required');
+      } else if (response.status === 400 && data.non_field_errors) {
+        setError(data.non_field_errors[0] || 'Invalid credentials');
+      } else if (data.error) {
+        setError(data.error);
       } else {
-        const errorData = await response.json();
-        if (errorData.non_field_errors && errorData.non_field_errors.length > 0) {
-          alert(errorData.non_field_errors[0]);
-        } else {
-          alert('Login failed');
-        }
+        setError('Login failed. Please try again.');
       }
-    } catch (error) {
-      alert('An error occurred');
+    } catch (err) {
+      setError('An error occurred. Please try again.');
+      console.error('Login error:', err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -58,6 +69,15 @@ export default function Login() {
         >
           Bit Admin Login
         </motion.h1>
+        {error && (
+          <motion.div
+            className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded-lg mb-6"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            {error}
+          </motion.div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-6">
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -72,7 +92,8 @@ export default function Login() {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400"
+              disabled={loading}
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400 disabled:opacity-50"
               placeholder="admin@bitgadgetz.com"
               required
             />
@@ -90,21 +111,23 @@ export default function Login() {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400"
+              disabled={loading}
+              className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-white placeholder-slate-400 disabled:opacity-50"
               placeholder="SecurePass2024!"
               required
             />
           </motion.div>
           <motion.button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8 }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={!loading ? { scale: 1.05 } : {}}
+            whileTap={!loading ? { scale: 0.95 } : {}}
           >
-            Sign In
+            {loading ? 'Signing in...' : 'Sign In'}
           </motion.button>
         </form>
         <motion.p

@@ -19,6 +19,7 @@ interface ProductFormData {
     product_condition: string;
     sku: string;
     brand: string;
+    brand_input: string;
     model: string;
     colors: string[];
     storage_options: string[];
@@ -56,6 +57,7 @@ export default function Products() {
     product_condition: '',
     sku: '',
     brand: '',
+    brand_input: '',
     model: '',
     colors: [],
     storage_options: [],
@@ -182,6 +184,7 @@ export default function Products() {
       product_condition: product.product_condition || '',
       sku: product.sku || '',
       brand: product.brand || '',
+      brand_input: product.brand_input || '',
       model: product.model || '',
       colors: product.colors || [],
       storage_options: product.storage_options || [],
@@ -259,7 +262,7 @@ export default function Products() {
         formDataToSend.append('coupon_value', formData.coupon_value);
         formDataToSend.append('is_coupon', 'true');
         formDataToSend.append('category_input', formData.category_input || 'coupons');
-        formDataToSend.append('brand_input', formData.brand || 'bitgadgetz');
+        formDataToSend.append('brand_input', formData.brand_input || formData.brand || 'bitgadgetz');
         formDataToSend.append('stock_quantity', '999999');
         formDataToSend.append('product_condition', 'new');
         formDataToSend.append('sku', formData.sku || `COUPON-${Date.now()}`);
@@ -365,6 +368,7 @@ export default function Products() {
         product_condition: '',
         sku: '',
         brand: '',
+        brand_input: '',
         model: '',
         colors: [],
         storage_options: [],
@@ -744,23 +748,41 @@ export default function Products() {
               {/* Pricing & Stock */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {formData.is_coupon && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Coupon Value (₦) *
-                    </label>
-                    <input
-                      type="number"
-                      name="coupon_value"
-                      value={formData.coupon_value}
-                      onChange={handleInputChange}
-                      step="0.01"
-                      min="0"
-                      className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                      required={formData.is_coupon}
-                      placeholder="e.g., 500"
-                    />
-                    <p className="text-xs text-slate-400 mt-1">The actual credit value customers will receive</p>
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Coupon Value (₦) *
+                      </label>
+                      <input
+                        type="number"
+                        name="coupon_value"
+                        value={formData.coupon_value}
+                        onChange={handleInputChange}
+                        step="0.01"
+                        min="0"
+                        className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                        required={formData.is_coupon}
+                        placeholder="e.g., 500"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">The actual credit value customers will receive</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-2">
+                        Brand Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="brand_input"
+                        value={formData.brand_input}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                        required={formData.is_coupon}
+                        placeholder="e.g., Apple, Samsung, Nokia"
+                      />
+                      <p className="text-xs text-slate-400 mt-1">Manual brand entry for coupons</p>
+                    </div>
+                  </>
                 )}
                 
                 <div>

@@ -1,10 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Menu, TrendingUp, ShoppingCart, Package, CreditCard, User, MessageSquare, Settings, BarChart3 } from 'lucide-react';
+import { Menu, TrendingUp, ShoppingCart, Package, CreditCard, User, MessageSquare, Settings, BarChart3, LogOut } from 'lucide-react';
 import Sidebar from '../../components/Sidebar';
+import ProtectedRoute from '../../components/ProtectedRoute';
+import { logout, getAuthToken } from '@/lib/auth';
 
 interface ChartDataItem {
    date: string;
@@ -26,31 +29,34 @@ interface ChartDataItem {
  }
 
  interface SalesChartResponse {
-   chart_data: ChartDataResponse;
+   period: string;
+   labels: string[];
+   data: number[];
    summary: {
-     total_revenue: number;
-     total_orders: number;
-     period_days: number;
-     average_daily_revenue: number;
-     average_daily_orders: number;
+     total_sales: number;
+     average_daily_sales: number;
+     peak_sales: number;
+     lowest_sales: number;
    };
-   status_distribution: {
-     pending: number;
-     paid: number;
-     payment_processing: number;
-   };
+   start_date: string;
+   end_date: string;
  }
 
 interface ActivityItem {
-  id: string;
+  id: number;
   type: string;
-  title: string;
-  description: string;
+  title?: string;
+  description?: string;
   amount?: number;
   status?: string;
   method?: string;
   timestamp: string;
-  icon: string;
+  icon?: string;
+  // API response fields
+  user_id?: number;
+  username?: string;
+  email?: string;
+  action_url?: string;
 }
 
 interface RecentActivityResponse {
@@ -92,40 +98,35 @@ interface ServiceRequests {
 }
 
 interface DashboardStatsResponse {
-   orders: {
-     total: number;
-     last_30_days: number;
-     last_7_days: number;
-     today: number;
-     status_breakdown: {
-       pending: number;
-       paid: number;
-       payment_processing: number;
-     };
-   };
-   revenue: {
-     total: number;
-     last_30_days: number;
-     last_7_days: number;
-   };
-   products: {
-     total: number;
-     active: number;
-     out_of_stock: number;
-     low_stock: number;
-   };
-   customers: {
-     total: number;
-   };
-   recent_activity: {
-     orders: number;
-     contact_messages: number;
-     phone_requests: number;
-   };
- }
+  total_customers: number;
+  total_orders: number;
+  total_revenue: number;
+  total_products: number;
+  recent_orders: Array<{
+    order_id: string;
+    customer_name: string;
+    customer_email: string;
+    total_amount: number;
+    status: string;
+    created_at: string;
+  }>;
+  top_products: Array<{
+    id: string;
+    name: string;
+    total_sales: number;
+    revenue: number;
+  }>;
+  order_status: {
+    [key: string]: number;
+  };
+  last_updated: string;
+}
 
 export default function Dashboard() {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [chartData, setChartData] = useState<ChartDataItem[]>([]);
   const [chartLoading, setChartLoading] = useState(true);
   const [chartError, setChartError] = useState<string | null>(null);
@@ -143,11 +144,24 @@ export default function Dashboard() {
     visible: { opacity: 1, y: 0 },
   };
 
+  // Check authentication on mount
   useEffect(() => {
-    fetchSalesChart();
-    fetchRecentActivity();
-    fetchDashboardStats();
-  }, []);
+    const token = getAuthToken();
+    if (!token) {
+      router.push('/');
+      return;
+    }
+    setIsAuthenticated(true);
+    setIsCheckingAuth(false);
+  }, [router]);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchSalesChart();
+      fetchRecentActivity();
+      fetchDashboardStats();
+    }
+  }, [isAuthenticated]);
 
   const fetchSalesChart = async () => {
     try {
@@ -163,9 +177,18 @@ export default function Dashboard() {
       }
 
       const result: SalesChartResponse = await response.json();
-      setChartData(result.chart_data.daily || []);
-      setTotalSales(result.summary.total_revenue || 0);
-      setTotalOrders(result.summary.total_orders || 0);
+      
+      // Transform API response to chart data format
+      const transformedData: ChartDataItem[] = result.labels.map((label, index) => ({
+        date: label,
+        revenue: result.data[index] || 0,
+        orders: 0,
+        formatted_date: label,
+      }));
+      
+      setChartData(transformedData);
+      setTotalSales(result.summary.total_sales || 0);
+      setTotalOrders(0); // Not provided in new API
     } catch (err) {
       setChartError(err instanceof Error ? err.message : 'Failed to load chart data');
       setTotalSales(0); // Ensure totalSales is always a number
@@ -212,81 +235,16 @@ export default function Dashboard() {
       }
 
       const result: DashboardStatsResponse = await response.json();
-
-      // NOTE: The API should only return revenue from PAID orders, not pending orders
-      // Currently showing warning in UI that only paid orders should be counted
-      setDashboardStats(result || {
-        orders: {
-          total: 0,
-          last_30_days: 0,
-          last_7_days: 0,
-          today: 0,
-          status_breakdown: {
-            pending: 0,
-            paid: 0,
-            payment_processing: 0
-          }
-        },
-        revenue: {
-          total: 0,
-          last_30_days: 0,
-          last_7_days: 0
-        },
-        products: {
-          total: 0,
-          active: 0,
-          out_of_stock: 0,
-          low_stock: 0
-        },
-        customers: {
-          total: 0
-        },
-        recent_activity: {
-          orders: 0,
-          contact_messages: 0,
-          phone_requests: 0
-        }
-      });
+      setDashboardStats(result);
     } catch (err) {
       setStatsError(err instanceof Error ? err.message : 'Failed to load dashboard stats');
-      setDashboardStats({
-        orders: {
-          total: 0,
-          last_30_days: 0,
-          last_7_days: 0,
-          today: 0,
-          status_breakdown: {
-            pending: 0,
-            paid: 0,
-            payment_processing: 0
-          }
-        },
-        revenue: {
-          total: 0,
-          last_30_days: 0,
-          last_7_days: 0
-        },
-        products: {
-          total: 0,
-          active: 0,
-          out_of_stock: 0,
-          low_stock: 0
-        },
-        customers: {
-          total: 0
-        },
-        recent_activity: {
-          orders: 0,
-          contact_messages: 0,
-          phone_requests: 0
-        }
-      });
+      setDashboardStats(null);
     } finally {
       setStatsLoading(false);
     }
   };
 
-  const getActivityIcon = (iconType: string) => {
+  const getActivityIcon = (iconType?: string) => {
     switch (iconType) {
       case 'shopping-cart':
         return <ShoppingCart className="text-blue-400" size={20} />;
@@ -301,7 +259,48 @@ export default function Dashboard() {
       case 'settings':
         return <Settings className="text-gray-400" size={20} />;
       default:
-        return <Package className="text-slate-400" size={20} />;
+        return <User className="text-slate-400" size={20} />;
+    }
+  };
+
+  const getActivityDetails = (activity: ActivityItem) => {
+    switch (activity.type) {
+      case 'user_registration':
+        return {
+          title: `New User Registration`,
+          description: `${activity.username} (${activity.email})`,
+          icon: 'user',
+        };
+      case 'order_placed':
+        return {
+          title: 'New Order',
+          description: activity.description || 'Order placed',
+          icon: 'shopping-cart',
+        };
+      case 'payment_received':
+        return {
+          title: 'Payment Received',
+          description: activity.description || 'Payment processed',
+          icon: 'credit-card',
+        };
+      case 'product_added':
+        return {
+          title: 'Product Added',
+          description: activity.description || 'New product added',
+          icon: 'package',
+        };
+      case 'contact_message':
+        return {
+          title: 'Contact Message',
+          description: activity.description || 'New message received',
+          icon: 'message-square',
+        };
+      default:
+        return {
+          title: activity.title || activity.type,
+          description: activity.description || 'Activity recorded',
+          icon: activity.icon,
+        };
     }
   };
 
@@ -320,6 +319,27 @@ export default function Dashboard() {
     return `${diffInDays}d ago`;
   };
 
+  const handleLogout = () => {
+    logout();
+  };
+
+  // Show loading spinner while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+          <p className="mt-4 text-white">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect if not authenticated (handled by useEffect, but this is a safety check)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <div className="flex h-screen bg-slate-900">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
@@ -331,14 +351,23 @@ export default function Dashboard() {
           <Menu size={20} />
         </button>
         <div className="max-w-7xl mx-auto">
-          <motion.h1
-            className="text-2xl md:text-3xl font-bold gradient-text mb-8"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.6 }}
-          >
-            Dashboard Overview
-          </motion.h1>
+          <div className="flex justify-between items-center mb-8">
+            <motion.h1
+              className="text-2xl md:text-3xl font-bold gradient-text"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6 }}
+            >
+              Dashboard Overview
+            </motion.h1>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              <LogOut size={18} />
+              Logout
+            </button>
+          </div>
           {statsLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
               {[...Array(4)].map((_, i) => (
@@ -376,13 +405,10 @@ export default function Dashboard() {
                   <h3 className="text-base md:text-lg font-semibold text-white">Total Revenue</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  ₦{(dashboardStats?.revenue?.total || 0).toLocaleString()}
+                  ₦{(dashboardStats?.total_revenue || 0).toLocaleString()}
                 </p>
                 <div className="text-xs text-green-100 mt-1">
-                  Last 30 days: ₦{(dashboardStats?.revenue?.last_30_days || 0).toLocaleString()}
-                </div>
-                <div className="text-xs text-yellow-200 mt-1">
-                  ⚠️ Only showing paid orders
+                  All-time revenue
                 </div>
               </motion.div>
 
@@ -397,10 +423,10 @@ export default function Dashboard() {
                   <h3 className="text-base md:text-lg font-semibold text-white">Total Orders</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  {dashboardStats?.orders?.total || 0}
+                  {dashboardStats?.total_orders || 0}
                 </p>
                 <div className="text-xs text-blue-100 mt-1">
-                  Today: {dashboardStats?.orders?.today || 0} | Paid: {dashboardStats?.orders?.status_breakdown?.paid || 0}
+                  Completed: {dashboardStats?.order_status?.completed || 0} | Pending: {dashboardStats?.order_status?.pending || 0}
                 </div>
               </motion.div>
 
@@ -412,13 +438,13 @@ export default function Dashboard() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <Package className="text-white" size={20} />
-                  <h3 className="text-base md:text-lg font-semibold text-white">Products</h3>
+                  <h3 className="text-base md:text-lg font-semibold text-white">Total Products</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  {dashboardStats?.products?.total || 0}
+                  {dashboardStats?.total_products || 0}
                 </p>
                 <div className="text-xs text-purple-100 mt-1">
-                  Active: {dashboardStats?.products?.active || 0} | Low Stock: {dashboardStats?.products?.low_stock || 0}
+                  All products
                 </div>
               </motion.div>
 
@@ -430,13 +456,13 @@ export default function Dashboard() {
               >
                 <div className="flex items-center gap-2 mb-2">
                   <User className="text-white" size={20} />
-                  <h3 className="text-base md:text-lg font-semibold text-white">Customers</h3>
+                  <h3 className="text-base md:text-lg font-semibold text-white">Total Customers</h3>
                 </div>
                 <p className="text-xl md:text-2xl font-bold text-white">
-                  {dashboardStats?.customers?.total || 0}
+                  {dashboardStats?.total_customers || 0}
                 </p>
                 <div className="text-xs text-orange-100 mt-1">
-                  Recent Activity: {dashboardStats?.recent_activity?.orders || 0} orders
+                  Registered customers
                 </div>
               </motion.div>
             </motion.div>
@@ -452,15 +478,15 @@ export default function Dashboard() {
               <div className="flex gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="text-blue-400" size={16} />
-                  <span className="text-slate-300">Revenue: ₦{(dashboardStats?.revenue?.total || 0).toLocaleString()}</span>
+                  <span className="text-slate-300">Revenue: ₦{(dashboardStats?.total_revenue || 0).toLocaleString()}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <ShoppingCart className="text-green-400" size={16} />
-                  <span className="text-slate-300">Orders: {dashboardStats?.orders?.total || 0}</span>
+                  <span className="text-slate-300">Orders: {dashboardStats?.total_orders || 0}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Package className="text-purple-400" size={16} />
-                  <span className="text-slate-300">Products: {dashboardStats?.products?.active || 0}/{dashboardStats?.products?.total || 0}</span>
+                  <span className="text-slate-300">Products: {dashboardStats?.total_products || 0}</span>
                 </div>
               </div>
             </div>
@@ -545,47 +571,50 @@ export default function Dashboard() {
               </div>
             ) : activities.length > 0 ? (
               <div className="space-y-4 max-h-96 overflow-y-auto">
-                {activities.map((activity, index) => (
-                  <motion.div
-                    key={activity.id}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-slate-600 hover:bg-slate-500 transition-colors"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.1, duration: 0.4 }}
-                  >
-                    <div className="flex-shrink-0 mt-0.5">
-                      {getActivityIcon(activity.icon)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-white truncate">
-                        {activity.title}
-                      </h4>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {activity.description}
-                      </p>
-                      {activity.amount && (
-                        <p className="text-xs font-medium text-green-400 mt-1">
-                          ₦{activity.amount.toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <div className="text-xs text-slate-500">
-                        {formatTimeAgo(activity.timestamp)}
+                {activities.map((activity, index) => {
+                  const details = getActivityDetails(activity);
+                  return (
+                    <motion.div
+                      key={activity.id}
+                      className="flex items-start gap-3 p-3 rounded-lg bg-slate-600 hover:bg-slate-500 transition-colors cursor-pointer"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1, duration: 0.4 }}
+                    >
+                      <div className="flex-shrink-0 mt-0.5">
+                        {getActivityIcon(details.icon)}
                       </div>
-                      {activity.status && (
-                        <div className={`text-xs px-2 py-1 rounded-full mt-1 ${
-                          activity.status === 'paid' ? 'bg-green-600 text-white' :
-                          activity.status === 'pending' ? 'bg-yellow-600 text-white' :
-                          activity.status === 'completed' ? 'bg-blue-600 text-white' :
-                          'bg-gray-600 text-white'
-                        }`}>
-                          {activity.status}
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-medium text-white truncate">
+                          {details.title}
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1 truncate">
+                          {details.description}
+                        </p>
+                        {activity.amount && (
+                          <p className="text-xs font-medium text-green-400 mt-1">
+                            ₦{activity.amount.toLocaleString()}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex-shrink-0 text-right">
+                        <div className="text-xs text-slate-500">
+                          {formatTimeAgo(activity.timestamp)}
                         </div>
-                      )}
-                    </div>
-                  </motion.div>
-                ))}
+                        {activity.status && (
+                          <div className={`text-xs px-2 py-1 rounded-full mt-1 ${
+                            activity.status === 'paid' ? 'bg-green-600 text-white' :
+                            activity.status === 'pending' ? 'bg-yellow-600 text-white' :
+                            activity.status === 'completed' ? 'bg-blue-600 text-white' :
+                            'bg-gray-600 text-white'
+                          }`}>
+                            {activity.status}
+                          </div>
+                        )}
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8">

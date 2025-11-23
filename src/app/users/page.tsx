@@ -338,8 +338,24 @@ export default function UsersPage() {
             </div>
           </motion.div>
 
+          {/* Statistics Loading Skeleton */}
+          {activeTab === 'users' && usersLoading && (
+            <motion.div
+              className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8"
+              initial="hidden"
+              animate="visible"
+            >
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="bg-slate-700 p-4 rounded-lg animate-pulse">
+                  <div className="h-5 bg-slate-600 rounded mb-2"></div>
+                  <div className="h-8 bg-slate-600 rounded"></div>
+                </div>
+              ))}
+            </motion.div>
+          )}
+
           {/* Statistics Cards */}
-          {activeTab === 'users' && usersData && (
+          {activeTab === 'users' && usersData && usersData.statistics && (
             <motion.div
               className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8"
               initial="hidden"

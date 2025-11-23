@@ -40,12 +40,7 @@ interface BannerFormData {
   title: string;
   subtitle: string;
   banner_type: string;
-  link_type: string;
-  target_product: string;
-  target_category: string;
-  external_url: string;
-  button_text: string;
-  is_active: boolean;
+  banner_url: string;
   display_order: string;
   start_date: string;
   end_date: string;
@@ -61,18 +56,11 @@ export default function Banners() {
   const [editingBannerId, setEditingBannerId] = useState<number | null>(null);
   const [existingBannerImageUrl, setExistingBannerImageUrl] = useState<string | null>(null);
   const [banners, setBanners] = useState<Banner[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState<BannerFormData>({
     title: '',
     subtitle: '',
     banner_type: 'hero',
-    link_type: 'none',
-    target_product: '',
-    target_category: '',
-    external_url: '',
-    button_text: 'Shop Now',
-    is_active: true,
+    banner_url: '',
     display_order: '0',
     start_date: '',
     end_date: '',
@@ -80,19 +68,6 @@ export default function Banners() {
 
   // Mock data - in real app, fetch from API
   useEffect(() => {
-    setProducts([
-      { id: 1, name: 'iPhone 15 Pro', slug: 'iphone-15-pro' },
-      { id: 2, name: 'Samsung Galaxy S24', slug: 'samsung-galaxy-s24' },
-      { id: 3, name: 'MacBook Pro 16"', slug: 'macbook-pro-16' },
-    ]);
-
-    setCategories([
-      { id: 1, name: 'phones', display_name: 'Phones' },
-      { id: 2, name: 'laptops', display_name: 'Laptops' },
-      { id: 3, name: 'tablets', display_name: 'Tablets' },
-      { id: 4, name: 'accessories', display_name: 'Accessories' },
-    ]);
-
     fetchBanners();
   }, []);
 
@@ -175,12 +150,7 @@ export default function Banners() {
       title: banner.title || '',
       subtitle: banner.subtitle || '',
       banner_type: banner.banner_type || 'hero',
-      link_type: banner.link_type || 'none',
-      target_product: '',
-      target_category: '',
-      external_url: banner.external_url || '',
-      button_text: banner.button_text || 'Shop Now',
-      is_active: !!banner.is_active,
+      banner_url: '',
       display_order: String(banner.display_order || 0),
       start_date: '',
       end_date: '',
@@ -204,9 +174,6 @@ export default function Banners() {
           formDataToSend.append(key, String(value));
         }
       });
-
-      // Ensure external_url is explicitly included when provided
-      if (formData.external_url) formDataToSend.append('external_url', formData.external_url);
 
       // Add image (allow using existing image URL when editing)
       if (bannerImage) {
@@ -247,12 +214,7 @@ export default function Banners() {
         title: '',
         subtitle: '',
         banner_type: 'hero',
-        link_type: 'none',
-        target_product: '',
-        target_category: '',
-        external_url: '',
-        button_text: 'Shop Now',
-        is_active: true,
+        banner_url: '',
         display_order: '0',
         start_date: '',
         end_date: '',
@@ -271,13 +233,6 @@ export default function Banners() {
     { value: 'promotional', label: 'Promotional' },
     { value: 'category', label: 'Category' },
     { value: 'seasonal', label: 'Seasonal' },
-  ];
-
-  const linkTypes = [
-    { value: 'none', label: 'No Link' },
-    { value: 'product', label: 'Product Page' },
-    { value: 'category', label: 'Category Page' },
-    { value: 'external', label: 'External URL' },
   ];
 
   return (
@@ -525,101 +480,21 @@ export default function Banners() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Link Type
-                </label>
-                <select
-                  name="link_type"
-                  value={formData.link_type}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                >
-                  {linkTypes.map(type => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Conditional Link Fields */}
-            {formData.link_type === 'product' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Target Product *
-                </label>
-                <select
-                  name="target_product"
-                  value={formData.target_product}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                  required={formData.link_type === 'product'}
-                >
-                  <option value="">Select a product</option>
-                  {products.map(product => (
-                    <option key={product.id} value={product.id}>
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {formData.link_type === 'category' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Target Category *
-                </label>
-                <select
-                  name="target_category"
-                  value={formData.target_category}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                  required={formData.link_type === 'category'}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>
-                      {category.display_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {formData.link_type === 'external' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  External URL *
-                </label>
-                <input
-                  type="url"
-                  name="external_url"
-                  value={formData.external_url}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                  placeholder="https://example.com"
-                  required={formData.link_type === 'external'}
-                />
-              </div>
-            )}
-
-            {/* Button & Display Settings */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Button Text
+                  Banner Details Link
                 </label>
                 <input
                   type="text"
-                  name="button_text"
-                  value={formData.button_text}
+                  name="banner_url"
+                  value={formData.banner_url}
                   onChange={handleInputChange}
                   className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                  placeholder="Shop Now"
+                  placeholder="Paste link to banner details"
                 />
               </div>
+            </div>
 
+            {/* Display Settings */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-2">
                   Display Order
@@ -699,20 +574,6 @@ export default function Banners() {
                   </div>
                 )}
               </div>
-            </div>
-
-            {/* Settings */}
-            <div className="flex items-center gap-6">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  name="is_active"
-                  checked={formData.is_active}
-                  onChange={handleInputChange}
-                  className="rounded border-slate-500 bg-slate-600 text-blue-600 focus:ring-blue-500"
-                />
-                <span className="text-slate-300">Banner is Active/Visible</span>
-              </label>
             </div>
 
             {/* Submit Button */}

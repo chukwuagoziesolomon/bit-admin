@@ -78,6 +78,7 @@ export default function Orders() {
    const [trackingModal, setTrackingModal] = useState<Order | null>(null);
    const [refundModal, setRefundModal] = useState<Order | null>(null);
    const [paymentConfirmModal, setPaymentConfirmModal] = useState<Order | null>(null);
+   const [paymentOverrideModal, setPaymentOverrideModal] = useState<Order | null>(null);
 
    // Form states
    const [trackingNumber, setTrackingNumber] = useState('');
@@ -291,6 +292,40 @@ export default function Orders() {
     }
   };
 
+  const overridePayment = async (orderId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/${orderId}/override-payment/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`,
+        },
+        body: JSON.stringify({
+          status: 'paid',
+          override_reason: adminNotes || 'Admin override',
+          payment_reference: paymentReference,
+          notes: confirmationNotes
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to override payment');
+      }
+
+      const result = await response.json();
+      toast.success(`✓ Payment overridden: ${result.previous_status} → ${result.new_status}`);
+      fetchOrders(); // Refresh data
+      setPaymentOverrideModal(null);
+      setPaymentReference('');
+      setConfirmationNotes('');
+      setAdminNotes('');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to override payment');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-gray-600';
@@ -426,7 +461,7 @@ export default function Orders() {
               },
             }}
           >
-            {data && Object.entries(data.statistics).map(([key, value], index) => (
+            {data && data.statistics && Object.entries(data.statistics).map(([key, value], index) => (
               <motion.div
                 key={key}
                 className="bg-slate-700 p-4 rounded-lg text-center"
@@ -532,6 +567,13 @@ export default function Orders() {
                             title="Manual Payment Confirmation"
                           >
                             <CreditCard size={16} />
+                          </button>
+                          <button
+                            onClick={() => setPaymentOverrideModal(order)}
+                            className="text-blue-400 hover:text-blue-300 transition-colors p-1"
+                            title="Override Payment"
+                          >
+                            <CheckCircle size={16} />
                           </button>
                           <button
                             onClick={() => setTrackingModal(order)}
@@ -675,7 +717,7 @@ export default function Orders() {
                   <p><strong>Subtotal:</strong> ₦{parseFloat(selectedOrder.subtotal).toLocaleString()}</p>
                   <p><strong>Shipping:</strong> ₦{parseFloat(selectedOrder.shipping_cost).toLocaleString()}</p>
                   <p><strong>Total:</strong> ₦{parseFloat(selectedOrder.total_amount).toLocaleString()}</p>
-                  <p><strong>Items:</strong> {Object.keys(selectedOrder.cart_items).length} different products</p>
+                  <p><strong>Items:</strong> {selectedOrder.cart_items ? Object.keys(selectedOrder.cart_items).length : 0} different products</p>
                   {selectedOrder.payment_reference && (
                     <p><strong>Payment Ref:</strong> {selectedOrder.payment_reference}</p>
                   )}
@@ -949,6 +991,97 @@ export default function Orders() {
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
               >
                 Process Refund
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Payment Override Modal */}
+      {paymentOverrideModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            className="bg-slate-800 p-6 rounded-lg w-full max-w-md max-h-96 overflow-y-auto"
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+          >
+            <h3 className="text-lg font-semibold text-white mb-4">
+              Override Payment Status - {paymentOverrideModal.order_id}
+            </h3>
+
+            <div className="bg-slate-700 p-3 rounded-lg mb-4">
+              <p className="text-sm text-slate-300">
+                <span className="font-semibold">Current Status:</span> {paymentOverrideModal.status}
+              </p>
+              <p className="text-sm text-slate-300">
+                <span className="font-semibold">Amount:</span> ₦{parseFloat(paymentOverrideModal.total_amount).toLocaleString()}
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Override Reason *
+                </label>
+                <select
+                  value={adminNotes}
+                  onChange={(e) => setAdminNotes(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                >
+                  <option value="">-- Select Reason --</option>
+                  <option value="Customer completed bank transfer">Customer Completed Bank Transfer</option>
+                  <option value="Manual verification - payment received">Manual Verification - Payment Received</option>
+                  <option value="Payment gateway delay - customer paid">Payment Gateway Delay - Customer Paid</option>
+                  <option value="Customer complaint - invoice provided">Customer Complaint - Invoice Provided</option>
+                  <option value="Incomplete payment - customer followed up">Incomplete Payment - Customer Followed Up</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Payment Reference (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                  placeholder="e.g., BANK-TRF-2025-11-23-123"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Additional Notes (Optional)
+                </label>
+                <textarea
+                  value={confirmationNotes}
+                  onChange={(e) => setConfirmationNotes(e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                  placeholder="Document why this override was necessary..."
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => {
+                  setPaymentOverrideModal(null);
+                  setPaymentReference('');
+                  setConfirmationNotes('');
+                  setAdminNotes('');
+                }}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => overridePayment(paymentOverrideModal.id.toString())}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                ✓ Override & Update
               </button>
             </div>
           </motion.div>

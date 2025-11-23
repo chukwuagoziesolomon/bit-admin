@@ -11,6 +11,7 @@ interface BrandFormData {
   display_name: string;
   description: string;
   website: string;
+  logo: string;
   is_active: boolean;
 }
 
@@ -33,13 +34,14 @@ export default function Brands() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [brandsLoading, setBrandsLoading] = useState(false);
-  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string>('');
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [formData, setFormData] = useState<BrandFormData>({
     name: '',
     display_name: '',
     description: '',
     website: '',
+    logo: '',
     is_active: true,
   });
 
@@ -83,12 +85,18 @@ export default function Brands() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files[0]) {
-      setLogoFile(files[0]);
+      // For now, store the file URL (in production, handle Cloudinary upload on backend)
+      // This is a placeholder - the actual upload should be handled by the backend
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoUrl(reader.result as string);
+      };
+      reader.readAsDataURL(files[0]);
     }
   };
 
   const removeLogo = () => {
-    setLogoFile(null);
+    setLogoUrl('');
   };
 
   const handleEdit = (brand: Brand) => {
@@ -98,6 +106,7 @@ export default function Brands() {
       display_name: brand.display_name,
       description: brand.description,
       website: brand.website,
+      logo: brand.logo || '',
       is_active: brand.is_active,
     });
     setActiveTab('create');
@@ -132,17 +141,10 @@ export default function Brands() {
 
     try {
       const token = localStorage.getItem('token');
-      const formDataToSend = new FormData();
-
-      // Add all form fields
-      Object.entries(formData).forEach(([key, value]) => {
-        formDataToSend.append(key, String(value));
-      });
-
-      // Add logo if provided
-      if (logoFile) {
-        formDataToSend.append('logo', logoFile);
-      }
+      const dataToSend = {
+        ...formData,
+        logo: logoUrl || formData.logo, // Use new logo URL or keep existing one
+      };
 
       const method = editingBrand ? 'PUT' : 'POST';
       const url = editingBrand
@@ -153,8 +155,9 @@ export default function Brands() {
         method,
         headers: {
           'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
         },
-        body: formDataToSend,
+        body: JSON.stringify(dataToSend),
       });
 
       const result = await response.json();
@@ -175,9 +178,10 @@ export default function Brands() {
         display_name: '',
         description: '',
         website: '',
+        logo: '',
         is_active: true,
       });
-      setLogoFile(null);
+      setLogoUrl('');
       setEditingBrand(null);
 
       if (activeTab === 'list') {
@@ -227,9 +231,10 @@ export default function Brands() {
                   display_name: '',
                   description: '',
                   website: '',
+                  logo: '',
                   is_active: true,
                 });
-                setLogoFile(null);
+                setLogoUrl('');
               }}
               className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-colors ${
                 activeTab === 'create'
@@ -333,34 +338,43 @@ export default function Brands() {
             {/* Logo Upload */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Brand Logo
+                Brand Logo URL
               </label>
-              <div className="border-2 border-dashed border-slate-500 rounded-lg p-6 text-center">
+              <div className="space-y-4">
                 <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  className="hidden"
-                  id="brandLogo"
+                  type="text"
+                  placeholder="Paste logo URL from Cloudinary or paste image as data URL"
+                  value={logoUrl || formData.logo}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 />
-                <label htmlFor="brandLogo" className="cursor-pointer">
-                  <Upload className="mx-auto mb-4 text-slate-400" size={48} />
-                  <p className="text-slate-400 mb-2">Click to upload brand logo</p>
-                  <p className="text-slate-500 text-sm">Recommended: Square image, Max 2MB</p>
-                </label>
-                {logoFile && (
-                  <div className="mt-4">
-                    <div className="inline-flex items-center gap-2 bg-slate-600 px-4 py-2 rounded-lg">
+                <div className="border-2 border-dashed border-slate-500 rounded-lg p-6 text-center">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleLogoUpload}
+                    className="hidden"
+                    id="brandLogo"
+                  />
+                  <label htmlFor="brandLogo" className="cursor-pointer">
+                    <Upload className="mx-auto mb-4 text-slate-400" size={48} />
+                    <p className="text-slate-400 mb-2">Or click to select image</p>
+                    <p className="text-slate-500 text-sm">Recommended: Square image, Max 2MB</p>
+                  </label>
+                </div>
+                {(logoUrl || formData.logo) && (
+                  <div className="flex items-center justify-between bg-slate-600 px-4 py-3 rounded-lg">
+                    <div className="flex items-center gap-2">
                       <Tag className="text-blue-400" size={16} />
-                      <span className="text-white text-sm">{logoFile.name}</span>
-                      <button
-                        type="button"
-                        onClick={removeLogo}
-                        className="text-red-400 hover:text-red-300 ml-2"
-                      >
-                        ✕
-                      </button>
+                      <span className="text-white text-sm truncate">Logo URL added</span>
                     </div>
+                    <button
+                      type="button"
+                      onClick={removeLogo}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
               </div>
