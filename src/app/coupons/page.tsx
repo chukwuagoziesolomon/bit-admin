@@ -67,6 +67,7 @@ interface CreateCouponData {
   minimum_order_amount: number;
   expires_at: string | null;
   description: string;
+  email?: string;
 }
 
 interface GenerateCodesData {
@@ -120,6 +121,7 @@ export default function CouponsPage() {
     minimum_order_amount: 0,
     expires_at: null,
     description: '',
+    email: '',
   });
 
   const [generateCodesData, setGenerateCodesData] = useState<GenerateCodesData>({
@@ -274,6 +276,11 @@ export default function CouponsPage() {
 
     try {
       const token = localStorage.getItem('token');
+      // Only include email if coupon_type is 'individual'
+      const payload = { ...createFormData };
+      if (payload.coupon_type !== 'individual') {
+        delete payload.email;
+      }
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupons/generate/`,
         {
@@ -282,7 +289,7 @@ export default function CouponsPage() {
             'Authorization': `Token ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(createFormData),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -302,6 +309,7 @@ export default function CouponsPage() {
         minimum_order_amount: 0,
         expires_at: null,
         description: '',
+        email: '',
       });
       fetchCoupons();
     } catch (err) {
@@ -948,6 +956,19 @@ export default function CouponsPage() {
                   </select>
                 </div>
 
+                {createFormData.coupon_type === 'individual' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-2">Email Address *</label>
+                    <input
+                      type="email"
+                      value={createFormData.email || ''}
+                      onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
+                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white text-sm"
+                      required={createFormData.coupon_type === 'individual'}
+                      placeholder="user@example.com"
+                    />
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type *</label>
