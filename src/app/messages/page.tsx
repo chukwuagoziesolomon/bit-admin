@@ -12,24 +12,16 @@ interface Message {
   phone: string;
   subject: string;
   message: string;
-  status: string;
-  ip_address: string;
-  user_agent: string;
   created_at: string;
   updated_at: string;
-}
-
-interface Statistics {
-  total: number;
-  unread: number;
-  read: number;
-  replied: number;
-  archived: number;
+  // Keep optional fields in case backend still includes them
+  status?: string;
+  ip_address?: string;
+  user_agent?: string;
 }
 
 interface ApiResponse {
   messages: Message[];
-  statistics: Statistics;
 }
 
 export default function Messages() {
@@ -93,33 +85,7 @@ export default function Messages() {
             </div>
           ) : data ? (
             <>
-              {/* Statistics */}
-              <motion.div
-                className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8"
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  visible: {
-                    transition: {
-                      staggerChildren: 0.1,
-                    },
-                  },
-                }}
-              >
-                {Object.entries(data.statistics).map(([key, value], index) => (
-                  <motion.div
-                    key={key}
-                    className="bg-slate-700 p-4 rounded-lg text-center"
-                    variants={{
-                      hidden: { opacity: 0, y: 20 },
-                      visible: { opacity: 1, y: 0 },
-                    }}
-                  >
-                    <h3 className="text-lg font-semibold text-white capitalize">{key}</h3>
-                    <p className="text-2xl font-bold text-blue-400">{value}</p>
-                  </motion.div>
-                ))}
-              </motion.div>
+              {/* No statistics provided by updated API; show a simple header */}
 
               {/* Messages List */}
               <div className="space-y-6">
@@ -137,14 +103,16 @@ export default function Messages() {
                     <p className="text-slate-300">From: {message.full_name} ({message.email})</p>
                     <p className="text-slate-400 text-sm">Phone: {message.phone}</p>
                   </div>
-                  <div className="mt-2 md:mt-0">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      message.status === 'unread' ? 'bg-blue-600 text-white' :
-                      message.status === 'read' ? 'bg-green-600 text-white' :
-                      'bg-gray-600 text-white'
-                    }`}>
-                      {message.status}
-                    </span>
+                  <div className="mt-2 md:mt-0 text-right">
+                    {message.status && (
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        message.status === 'unread' ? 'bg-blue-600 text-white' :
+                        message.status === 'read' ? 'bg-green-600 text-white' :
+                        'bg-gray-600 text-white'
+                      }`}>
+                        {message.status}
+                      </span>
+                    )}
                     <p className="text-slate-400 text-sm mt-1">
                       {new Date(message.created_at).toLocaleDateString()}
                     </p>
@@ -153,10 +121,12 @@ export default function Messages() {
                 <div className="bg-slate-600 p-4 rounded-lg">
                   <p className="text-slate-200 whitespace-pre-wrap">{message.message}</p>
                 </div>
-                <div className="mt-4 text-xs text-slate-400">
-                  <p>IP: {message.ip_address}</p>
-                  <p>User Agent: {message.user_agent}</p>
-                </div>
+                {(message.ip_address || message.user_agent) && (
+                  <div className="mt-4 text-xs text-slate-400">
+                    {message.ip_address && <p>IP: {message.ip_address}</p>}
+                    {message.user_agent && <p>User Agent: {message.user_agent}</p>}
+                  </div>
+                )}
               </motion.div>
             ))}
               </div>

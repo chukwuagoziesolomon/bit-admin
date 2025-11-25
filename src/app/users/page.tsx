@@ -583,7 +583,7 @@ export default function UsersPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-600">
-                  {usersData && usersData.users.map((user, index) => (
+                  {usersData && Array.isArray(usersData.users) && usersData.users.map((user, index) => (
                     <motion.tr
                       key={user.id}
                       className="hover:bg-slate-600 transition-colors"

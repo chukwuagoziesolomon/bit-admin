@@ -1,0 +1,27 @@
+// Example API response structure for /api/admin/payments/tracking/
+// {
+//   "results": {
+//     "payments": [
+//       {
+//         "id": "string",
+//         "order_id": "string",
+//         "user_email": "string",
+//         "user_name": "string",
+//         "amount": 0,
+//         "currency": "string",
+//         "method": "string",
+//         "status": "string",
+//         "created_at": "string"
+//       }
+//     ],
+//     "statistics": {
+//       "total_payments": 0,
+//       "total_amount": 0,
+//       "recent_payments": 0,
+//       "status_breakdown": [ { "status": "string", "count": 0 } ],
+//       "method_breakdown": [ { "method": "string", "count": 0 } ],
+//       "currency": "string",
+//       "currency_symbol": "string"
+//     }
+//   }
+// }
