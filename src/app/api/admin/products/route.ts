@@ -69,10 +69,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Database query for products
-    // const products = await db.product.findMany({
-    //   orderBy: { created_at: 'desc' }
-    // });
+    // Support query params for search and pagination to power dropdowns/autocomplete
+    const url = new URL(request.url);
+    const search = url.searchParams.get('search') || url.searchParams.get('q') || '';
+    const page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
+    const per_page = parseInt(url.searchParams.get('per_page') || url.searchParams.get('perPage') || '20', 10) || 20;
 
     // Mock data for now - replace with actual database queries
     const products = [
@@ -118,11 +119,31 @@ export async function GET(request: NextRequest) {
       }
     ];
 
+    // Filter by search query (match id, name, sku)
+    const filtered = products.filter(p => {
+      if (!search) return true;
+      const s = search.toLowerCase();
+      return String(p.id).includes(s) || p.name.toLowerCase().includes(s) || (p.sku && p.sku.toLowerCase().includes(s));
+    });
+
+    // Simple pagination
+    const start = (page - 1) * per_page;
+    const paged = filtered.slice(start, start + per_page);
+
+    // Return simplified payload suitable for dropdowns
+    const simplified = paged.map(p => ({
+      id: p.id,
+      name: p.name,
+      sku: p.sku,
+      price: p.price,
+      is_coupon: p.is_coupon,
+    }));
+
     const result = {
-      results: products,
-      count: products.length,
-      next: null,
-      previous: null
+      results: simplified,
+      count: filtered.length,
+      next: start + per_page < filtered.length ? page + 1 : null,
+      previous: page > 1 ? page - 1 : null,
     };
 
     return NextResponse.json(result);

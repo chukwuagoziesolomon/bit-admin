@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
-import { CreditCard, DollarSign, TrendingUp, Filter, Search, Calendar } from "lucide-react";
+import { CreditCard, DollarSign, TrendingUp, Filter, Search, Calendar, Copy } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface Payment {
@@ -53,6 +53,7 @@ export default function PaymentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -84,6 +85,19 @@ export default function PaymentsPage() {
     <div className="flex h-screen bg-slate-900">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       <main className="flex-1 p-4 md:p-8 bg-slate-800 overflow-auto">
+        {copiedAddress && (
+          <div className="fixed right-6 top-6 z-50">
+            <div className="bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 10-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z" clipRule="evenodd" />
+              </svg>
+              <div className="text-sm">
+                <div>Wallet address copied</div>
+                <div className="text-xs font-mono truncate max-w-xs">{copiedAddress}</div>
+              </div>
+            </div>
+          </div>
+        )}
         <button
           onClick={() => setSidebarOpen(true)}
           className="md:hidden fixed top-4 left-4 z-30 p-2 bg-slate-700 rounded-lg text-white"
@@ -188,6 +202,32 @@ export default function PaymentsPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-white">N/A</td>
                             <td className="px-6 py-4 whitespace-nowrap text-white">${p.amount_usd} {p.amount_usdt !== "0.00" && ` / ${p.amount_usdt} USDT`}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-white">{p.payment_method_display}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-white">
+                              {p.wallet_address ? (
+                                <div className="flex items-center gap-2">
+                                  <div className="text-slate-300 truncate max-w-[220px]" title={p.wallet_address}>
+                                    {p.wallet_address.length > 40 ? `${p.wallet_address.substring(0,12)}...${p.wallet_address.slice(-12)}` : p.wallet_address}
+                                  </div>
+                                  <button
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(p.wallet_address || '');
+                                        setCopiedAddress(p.wallet_address || '');
+                                        window.setTimeout(() => setCopiedAddress(null), 3000);
+                                      } catch (e) {
+                                        // ignore
+                                      }
+                                    }}
+                                    className="p-1 rounded hover:bg-slate-600"
+                                    title="Copy wallet address"
+                                  >
+                                    <Copy size={16} className="text-slate-300" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-slate-400">N/A</span>
+                              )}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-white">{p.status_display}</td>
                             <td className="px-6 py-4 whitespace-nowrap text-white">{new Date(p.created_at).toLocaleString()}</td>
                           </tr>

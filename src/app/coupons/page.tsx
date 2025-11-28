@@ -272,14 +272,28 @@ export default function CouponsPage() {
       return;
     }
 
+    // Validate email for individual coupons
+    if (createFormData.coupon_type === 'individual') {
+      const hasEmail = !!(createFormData.email && String(createFormData.email).trim()) || !!(createFormData.assigned_to_email && String(createFormData.assigned_to_email).trim());
+      if (!hasEmail) {
+        toast.error('Email address is required for individual coupons');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
       const token = localStorage.getItem('token');
-      // Only include email if coupon_type is 'individual'
-      const payload = { ...createFormData };
+      // Build payload and normalize email fields for backend compatibility
+      const payload: any = { ...createFormData };
       if (payload.coupon_type !== 'individual') {
         delete payload.email;
+        delete payload.assigned_to_email;
+      } else {
+        // prefer `email` but also set `assigned_to_email` for compatibility
+        payload.email = payload.email || payload.assigned_to_email || '';
+        payload.assigned_to_email = payload.assigned_to_email || payload.email;
       }
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupons/generate/`,

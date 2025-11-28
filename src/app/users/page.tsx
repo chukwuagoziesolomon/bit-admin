@@ -882,7 +882,7 @@ export default function UsersPage() {
           )}
 
           {/* Users Empty State */}
-          {activeTab === 'users' && usersData && usersData.users.length === 0 && (
+          {activeTab === 'users' && usersData && Array.isArray(usersData.users) && usersData.users.length === 0 && (
             <div className="text-center py-12">
               <Users className="mx-auto h-12 w-12 text-slate-400" />
               <h3 className="mt-2 text-sm font-medium text-slate-300">No users found</h3>
