@@ -68,6 +68,7 @@ interface CreateCouponData {
   expires_at: string | null;
   description: string;
   email?: string;
+  assigned_to_email?: string;
 }
 
 interface GenerateCodesData {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { interstatePrices } from '../data';
+import { interstatePrices } from '../../data';
 
 // DELETE /api/admin/shipping/interstate-prices/{price_id}/delete/ - Delete an interstate shipping price
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {

@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       discount_percentage: Math.round(((originalPriceNum - Number(deal_price)) / originalPriceNum) * 100 * 100) / 100,
       start_time: new Date(start_time).toISOString(),
       end_time: new Date(end_time).toISOString(),
-      status: status ? String(status) : computeStatus(new Date(start_time).toISOString(), new Date(end_time).toISOString()),
+      status: status ? (status as 'scheduled' | 'active' | 'expired' | 'cancelled') : computeStatus(new Date(start_time).toISOString(), new Date(end_time).toISOString()),
       created_at,
       updated_at: created_at,
       is_featured: !!is_featured,

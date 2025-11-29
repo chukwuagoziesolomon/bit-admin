@@ -2,12 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { deals, products, computeStatus } from '../../data';
 import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
 
-export async function PATCH(request: NextRequest, { params }: { params: { deal_id: string } }) {
-  return update(request, params);
+export async function PATCH(request: NextRequest, { params }: { params: Promise<{ deal_id: string }> }) {
+  return update(request, await params);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { deal_id: string } }) {
-  return update(request, params);
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ deal_id: string }> }) {
+  return update(request, await params);
 }
 
 async function update(request: NextRequest, params: { deal_id: string }) {
