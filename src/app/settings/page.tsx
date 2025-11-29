@@ -21,6 +21,7 @@ interface InterstatePrice {
    id: number;
    state_name: string;
    shipping_price: string;
+   shipping_price_usdt?: string;
    is_active: boolean;
    is_free_shipping: boolean;
    created_at: string;
@@ -38,8 +39,9 @@ export default function Settings() {
    const [isModalOpen, setIsModalOpen] = useState(false);
    const [newStateName, setNewStateName] = useState('');
    const [newStatePrice, setNewStatePrice] = useState('');
-   const [newStateActive, setNewStateActive] = useState(true);
-   const [newStateFreeShipping, setNewStateFreeShipping] = useState(false);
+  const [newStateActive, setNewStateActive] = useState(true);
+  const [newStateFreeShipping, setNewStateFreeShipping] = useState(false);
+  const [newStatePriceUSDT, setNewStatePriceUSDT] = useState('');
 
   const fetchInterstatePrices = async () => {
     try {
@@ -82,8 +84,22 @@ export default function Settings() {
   };
 
   const removeInterstatePrice = async (id: number) => {
-    // Since no delete API, set inactive
-    await updateInterstatePrice(id, { is_active: false });
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/${id}/delete/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Token ${token}`,
+        },
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete price');
+      }
+      setInterstatePrices(prev => prev.filter(p => p.id !== id));
+      toast.success('Shipping price deleted');
+    } catch (err) {
+      toast.error('Failed to delete price');
+    }
   };
 
   const openAddStateModal = () => {
@@ -97,14 +113,18 @@ export default function Settings() {
   const handleAddState = async () => {
     const stateName = newStateName.trim();
     const price = parseFloat(newStatePrice);
+    const priceUSDT = parseFloat(newStatePriceUSDT);
 
     if (!stateName) {
       toast.error('Please enter a state name');
       return;
     }
-
     if (isNaN(price) || price < 0) {
-      toast.error('Please enter a valid price (must be 0 or greater)');
+      toast.error('Please enter a valid NGN price (must be 0 or greater)');
+      return;
+    }
+    if (isNaN(priceUSDT) || priceUSDT < 0) {
+      toast.error('Please enter a valid USDT price (must be 0 or greater)');
       return;
     }
 
@@ -119,6 +139,7 @@ export default function Settings() {
         body: JSON.stringify({
           state_name: stateName,
           shipping_price: price.toString(),
+          shipping_price_usdt: priceUSDT.toString(),
           is_active: newStateActive,
           is_free_shipping: newStateFreeShipping,
         }),
@@ -130,7 +151,7 @@ export default function Settings() {
       const result = await response.json();
       setInterstatePrices(prev => [...prev, result.price]);
       setIsModalOpen(false);
-      toast.success(`Added ${stateName} with price ₦${price.toLocaleString()}`);
+      toast.success(`Added ${stateName} with price ₦${price.toLocaleString()} and $${priceUSDT} USDT`);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to add state');
     }
@@ -329,6 +350,15 @@ export default function Settings() {
                           min="0"
                           step="0.01"
                         />
+                        <span className="text-slate-400 ml-4">USDT</span>
+                        <input
+                          type="number"
+                          value={price.shipping_price_usdt || ''}
+                          onChange={(e) => updateInterstatePrice(price.id, { shipping_price_usdt: e.target.value })}
+                          className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
+                          min="0"
+                          step="0.01"
+                        />
                       </div>
                       <div className="flex items-center gap-2">
                         <label className="flex items-center gap-1 text-sm text-slate-300">
@@ -351,10 +381,14 @@ export default function Settings() {
                         </label>
                       </div>
                       <button
-                        onClick={() => removeInterstatePrice(price.id)}
+                        onClick={() => {
+                          if (window.confirm('Are you sure you want to delete this shipping price?')) {
+                            removeInterstatePrice(price.id);
+                          }
+                        }}
                         className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
                       >
-                        Deactivate
+                        Delete
                       </button>
                     </div>
                   ))}
@@ -428,6 +462,20 @@ export default function Settings() {
                   onChange={(e) => setNewStatePrice(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
                   placeholder="Enter price (e.g., 10000)"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Shipment Price (USDT)
+                </label>
+                <input
+                  type="number"
+                  value={newStatePriceUSDT}
+                  onChange={(e) => setNewStatePriceUSDT(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
+                  placeholder="Enter price in USDT (e.g., 1.5)"
                   min="0"
                   step="0.01"
                 />

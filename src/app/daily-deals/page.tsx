@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Sidebar from '@/components/Sidebar';
 import ProtectedRoute from '@/components/ProtectedRoute';
 import { motion } from 'framer-motion';
@@ -22,8 +22,24 @@ interface DealItem {
   end_time: string;
   status?: string;
   product_data?: { id: number; name: string } | null;
+  is_featured?: boolean;
+  max_quantity?: number | null;
+  main_image?: string | null;
+  deal_price_usdt?: string | null;
+  deal_description?: string | null;
+  terms_and_conditions?: string | null;
+  cta_url?: string | null;
 }
 export default function DailyDeals() {
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Handle file input (no upload, just show file name)
+  const handleMainImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImageFile(file);
+    }
+  };
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [products, setProducts] = useState<DropdownProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
@@ -31,8 +47,17 @@ export default function DailyDeals() {
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [dealPrice, setDealPrice] = useState('');
+  const [originalPrice, setOriginalPrice] = useState('');
+  const [dealPriceUsdt, setDealPriceUsdt] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [maxQuantity, setMaxQuantity] = useState('');
+  const [mainImage, setMainImage] = useState('');
+  const [dealDescription, setDealDescription] = useState('');
+  const [termsAndConditions, setTermsAndConditions] = useState('');
+  const [ctaUrl, setCtaUrl] = useState('');
+  const [discountPercentage, setDiscountPercentage] = useState('');
   const [deals, setDeals] = useState<DealItem[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
   const [editingDealId, setEditingDealId] = useState<number | null>(null);
@@ -43,11 +68,15 @@ export default function DailyDeals() {
     fetchDeals();
   }, []);
 
+  // Client-side API base (use NEXT_PUBLIC_API_BASE_URL to point to external backend)
+  const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || '').replace(/\/$/, '');
+  const buildUrl = (path: string) => (API_BASE ? `${API_BASE}${path}` : path);
+
   const fetchDeals = async () => {
     try {
       setLoadingDeals(true);
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const res = await fetch('/api/admin/daily-deal/list/', {
+      const res = await fetch(buildUrl('/api/admin/daily-deal/list/'), {
         headers: token ? { Authorization: `Token ${token}` } : undefined,
       });
       if (!res.ok) throw new Error('Failed to load deals');
@@ -64,7 +93,7 @@ export default function DailyDeals() {
     try {
       setLoadingProducts(true);
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const res = await fetch('/api/admin/products/dropdown/', {
+      const res = await fetch(buildUrl('/api/admin/products/dropdown/'), {
         headers: token ? { Authorization: `Token ${token}` } : undefined,
       });
       if (!res.ok) throw new Error('Failed to load products');
@@ -86,16 +115,31 @@ export default function DailyDeals() {
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const body = {
-        product_id: selectedProduct,
+      const body: any = {
+        product: String(selectedProduct),
         title,
         subtitle,
-        deal_price: Number(dealPrice),
+        deal_price: dealPrice,
+        is_featured: isFeatured,
         start_time: new Date(startTime).toISOString(),
         end_time: new Date(endTime).toISOString(),
       };
+      if (dealPriceUsdt) body.deal_price_usdt = dealPriceUsdt;
+      if (originalPrice) body.original_price = originalPrice;
+      if (maxQuantity) body.max_quantity = maxQuantity;
+      if (dealDescription) body.deal_description = dealDescription;
+      if (termsAndConditions) body.terms_and_conditions = termsAndConditions;
+      if (ctaUrl) body.cta_url = ctaUrl;
+      if (discountPercentage) {
+        // Ensure at most 3 digits before decimal
+        const dp = discountPercentage.match(/^\d{1,3}(\.\d+)?$/) ? discountPercentage : String(Number(discountPercentage).toFixed(2));
+        body.discount_percentage = dp;
+      }
+      if (mainImage) {
+        body.main_image = mainImage;
+      }
 
-      const res = await fetch('/api/admin/daily-deal/create/', {
+      const res = await fetch(buildUrl('/api/admin/daily-deal/create/'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -114,12 +158,23 @@ export default function DailyDeals() {
       setTitle('');
       setSubtitle('');
       setDealPrice('');
+      setOriginalPrice('');
+      setDealPriceUsdt('');
       setStartTime('');
       setEndTime('');
+      setIsFeatured(false);
+      setMaxQuantity('');
+      setMainImage('');
+      setDealDescription('');
+      setTermsAndConditions('');
+      setCtaUrl('');
+      setDiscountPercentage('');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to create deal');
     }
   };
+
+  // Remove file upload handler
 
   const startEdit = (deal: DealItem) => {
     setEditingDealId(deal.id);
@@ -127,8 +182,16 @@ export default function DailyDeals() {
     setTitle(deal.title ?? '');
     setSubtitle(deal.subtitle ?? '');
     setDealPrice(String(deal.deal_price ?? ''));
+    setOriginalPrice(deal.original_price != null ? String(deal.original_price) : '');
+    setDealPriceUsdt(deal.deal_price_usdt ?? '');
     setStartTime(deal.start_time ? new Date(deal.start_time).toISOString().slice(0,16) : '');
     setEndTime(deal.end_time ? new Date(deal.end_time).toISOString().slice(0,16) : '');
+    setIsFeatured(!!deal.is_featured);
+    setMaxQuantity(deal.max_quantity != null ? String(deal.max_quantity) : '');
+    setMainImage(deal.main_image ?? '');
+    setDealDescription(deal.deal_description ?? '');
+    setTermsAndConditions(deal.terms_and_conditions ?? '');
+    setCtaUrl(deal.cta_url ?? '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -137,16 +200,35 @@ export default function DailyDeals() {
     if (!editingDealId) return toast.error('No deal selected');
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const body = {
+      const isExternal = !!API_BASE;
+      const baseBody: any = {
         product_id: selectedProduct,
         title,
         subtitle,
         deal_price: Number(dealPrice),
+        deal_price_usdt: dealPriceUsdt || null,
+        original_price: originalPrice ? Number(originalPrice) : undefined,
+        is_featured: isFeatured,
+        max_quantity: maxQuantity ? Number(maxQuantity) : null,
+        main_image: mainImage || null,
+        deal_description: dealDescription || null,
+        terms_and_conditions: termsAndConditions || null,
+        cta_url: ctaUrl || null,
         start_time: new Date(startTime).toISOString(),
         end_time: new Date(endTime).toISOString(),
       };
 
-      const res = await fetch(`/api/admin/daily-deal/${editingDealId}/update/`, {
+      const body: any = { ...baseBody };
+      if (isExternal) {
+        body.product = baseBody.product_id;
+        delete body.product_id;
+        body.main_image = baseBody.main_image || '';
+        const orig = baseBody.original_price != null ? Number(baseBody.original_price) : null;
+        const deal = Number(baseBody.deal_price || 0);
+        body.discount_percentage = orig && orig > 0 ? Math.round(((orig - deal) / orig) * 100) : 0;
+      }
+
+      const res = await fetch(buildUrl(`/api/admin/daily-deal/${editingDealId}/update/`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -162,6 +244,8 @@ export default function DailyDeals() {
       setEditingDealId(null);
       // clear form
       setSelectedProduct(null); setTitle(''); setSubtitle(''); setDealPrice(''); setStartTime(''); setEndTime('');
+      setOriginalPrice(''); setDealPriceUsdt('');
+      setIsFeatured(false); setMaxQuantity(''); setMainImage(''); setDealDescription(''); setTermsAndConditions(''); setCtaUrl('');
       fetchDeals();
     } catch (err: any) {
       toast.error(err?.message || 'Failed to update deal');
@@ -172,7 +256,7 @@ export default function DailyDeals() {
     if (!confirm('Delete this deal?')) return;
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const res = await fetch(`/api/admin/daily-deal/${id}/delete/`, {
+      const res = await fetch(buildUrl(`/api/admin/daily-deal/${id}/delete/`), {
         method: 'DELETE',
         headers: token ? { Authorization: `Token ${token}` } : undefined,
       });
@@ -218,6 +302,22 @@ export default function DailyDeals() {
                     ))}
                   </select>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-1">Original Price</label>
+                    <input type="number" step="0.01" value={originalPrice} onChange={(e) => setOriginalPrice(e.target.value)} placeholder="e.g. 100.00" className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-1">Discount Percentage</label>
+                    <input type="number" step="0.01" value={discountPercentage} onChange={(e) => setDiscountPercentage(e.target.value)} placeholder="e.g. 20.5" className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-1">Deal Price (USDT)</label>
+                    <input value={dealPriceUsdt} onChange={(e) => setDealPriceUsdt(e.target.value)} placeholder="e.g. 79.990000" className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                  </div>
+                </div>
 
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Title</label>
@@ -243,11 +343,69 @@ export default function DailyDeals() {
                     <input type="datetime-local" value={endTime} onChange={(e) => setEndTime(e.target.value)} className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
                   </div>
                 </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2">
+                    <input id="is_featured" type="checkbox" checked={isFeatured} onChange={(e) => setIsFeatured(e.target.checked)} className="w-4 h-4" />
+                    <label htmlFor="is_featured" className="text-sm text-slate-300">Feature this deal</label>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-1">Max Quantity</label>
+                    <input type="number" min={0} value={maxQuantity} onChange={(e) => setMaxQuantity(e.target.value)} className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm text-slate-300 mb-1">Main Image URL or File</label>
+                    <div className="flex gap-2 items-center">
+                      <input value={mainImage} onChange={(e) => setMainImage(e.target.value)} placeholder="Paste image URL" className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                      <button
+                        type="button"
+                        className="px-3 py-2 bg-blue-600 text-white rounded text-sm"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        Choose File
+                      </button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        style={{ display: 'none' }}
+                        onChange={handleMainImageFile}
+                      />
+                    </div>
+                    {selectedImageFile && (
+                      <div className="mt-3 text-slate-300 text-sm">Selected file: {selectedImageFile.name}</div>
+                    )}
+                    {mainImage ? (
+                      <div className="mt-3">
+                        <img src={mainImage} alt="Main" className="max-h-40 rounded border border-slate-600" />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm text-slate-300 mb-1">Deal Description</label>
+                    <textarea value={dealDescription} onChange={(e) => setDealDescription(e.target.value)} rows={3} className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm text-slate-300 mb-1">Terms &amp; Conditions</label>
+                    <textarea value={termsAndConditions} onChange={(e) => setTermsAndConditions(e.target.value)} rows={3} className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm text-slate-300 mb-1">CTA URL</label>
+                    <input value={ctaUrl} onChange={(e) => setCtaUrl(e.target.value)} className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white" />
+                  </div>
+                </div>
 
                 <div className="flex gap-2">
                   <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">{editingDealId ? 'Save Changes' : 'Create Deal'}</button>
                   <button type="button" onClick={() => {
-                    setEditingDealId(null); setSelectedProduct(null); setTitle(''); setSubtitle(''); setDealPrice(''); setStartTime(''); setEndTime('');
+                    setEditingDealId(null);
+                    setSelectedProduct(null);
+                    setTitle(''); setSubtitle(''); setDealPrice(''); setStartTime(''); setEndTime('');
+                    setIsFeatured(false); setMaxQuantity(''); setMainImage(''); setDealDescription(''); setTermsAndConditions(''); setCtaUrl('');
                   }} className="px-4 py-2 bg-slate-600 text-white rounded">Reset</button>
                 </div>
               </form>
