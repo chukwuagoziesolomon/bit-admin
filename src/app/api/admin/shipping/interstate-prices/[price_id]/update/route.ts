@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-// Use a fallback mock if '../data' is missing
 let interstatePrices: any[] = [];
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   interstatePrices = require('../data').interstatePrices;
 } catch (e) {
-  // fallback mock for dev/test
   interstatePrices = [
     {
       id: 1,
@@ -29,7 +26,6 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 }
 
 async function handleUpdate(request: NextRequest, params: { price_id: string }) {
-  // Mock admin authentication check
   const authHeader = request.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith('Token ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -87,17 +83,6 @@ async function handleUpdate(request: NextRequest, params: { price_id: string }) 
   } catch (error) {
     return NextResponse.json({ error: 'Invalid JSON data' }, { status: 400 });
   }
-}
-import { NextRequest, NextResponse } from 'next/server';
-import { interstatePrices } from '../data';
-
-// PUT/PATCH /api/admin/shipping/interstate-prices/{price_id}/update/ - Update interstate shipping price (partial update)
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {
-  return handleUpdate(request, await params);
-}
-
-export async function PATCH(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {
-  return handleUpdate(request, await params);
 }
 
 async function handleUpdate(request: NextRequest, params: { price_id: string }) {
