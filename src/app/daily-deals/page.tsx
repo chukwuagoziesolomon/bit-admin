@@ -115,37 +115,34 @@ export default function DailyDeals() {
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const body: any = {
-        product: String(selectedProduct),
-        title,
-        subtitle,
-        deal_price: dealPrice,
-        is_featured: isFeatured,
-        start_time: new Date(startTime).toISOString(),
-        end_time: new Date(endTime).toISOString(),
-      };
-      if (dealPriceUsdt) body.deal_price_usdt = dealPriceUsdt;
-      if (originalPrice) body.original_price = originalPrice;
-      if (maxQuantity) body.max_quantity = maxQuantity;
-      if (dealDescription) body.deal_description = dealDescription;
-      if (termsAndConditions) body.terms_and_conditions = termsAndConditions;
-      if (ctaUrl) body.cta_url = ctaUrl;
+      const formData = new FormData();
+      formData.append('product', String(selectedProduct));
+      formData.append('title', title);
+      if (subtitle) formData.append('subtitle', subtitle);
+      formData.append('deal_price', dealPrice);
+      if (dealPriceUsdt) formData.append('deal_price_usdt', dealPriceUsdt);
+      if (originalPrice) formData.append('original_price', originalPrice);
+      if (maxQuantity) formData.append('max_quantity', maxQuantity);
+      if (dealDescription) formData.append('deal_description', dealDescription);
+      if (termsAndConditions) formData.append('terms_and_conditions', termsAndConditions);
+      if (ctaUrl) formData.append('cta_url', ctaUrl);
       if (discountPercentage) {
-        // Ensure at most 3 digits before decimal
         const dp = discountPercentage.match(/^\d{1,3}(\.\d+)?$/) ? discountPercentage : String(Number(discountPercentage).toFixed(2));
-        body.discount_percentage = dp;
+        formData.append('discount_percentage', dp);
       }
-      if (mainImage) {
-        body.main_image = mainImage;
+      formData.append('start_time', new Date(startTime).toISOString());
+      formData.append('end_time', new Date(endTime).toISOString());
+      formData.append('is_featured', isFeatured ? 'true' : 'false');
+      if (selectedImageFile) {
+        formData.append('deal_image', selectedImageFile);
       }
 
       const res = await fetch(buildUrl('/api/admin/daily-deal/create/'), {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           ...(token ? { Authorization: `Token ${token}` } : {}),
         },
-        body: JSON.stringify(body),
+        body: formData,
       });
 
       const data = await res.json();
@@ -169,6 +166,7 @@ export default function DailyDeals() {
       setTermsAndConditions('');
       setCtaUrl('');
       setDiscountPercentage('');
+      setSelectedImageFile(null);
     } catch (err: any) {
       toast.error(err?.message || 'Failed to create deal');
     }
