@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Menu, Folder, Upload, Image, Edit, Trash2, RotateCcw, Plus, Eye } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -44,7 +44,7 @@ export default function Categories() {
   // Load categories on component mount
   useEffect(() => {
     loadCategories();
-  }, [showDeleted]);
+  }, [showDeleted]); // loadCategories is stable, no need to include in deps
 
   const loadCategories = async () => {
     try {

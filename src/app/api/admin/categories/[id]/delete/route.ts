@@ -5,13 +5,14 @@ import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
 // DELETE /api/admin/categories/[id]/delete - Soft delete category
 export async function DELETE(
   request: NextRequest, 
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = requireAdminAuth(request.headers, request.cookies);
     if (!authResult.ok) return unauthorizedResponse();
 
-    const categoryId = parseInt(params.id);
+    const resolvedParams = await params;
+    const categoryId = parseInt(resolvedParams.id);
     if (isNaN(categoryId)) {
       return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
     }

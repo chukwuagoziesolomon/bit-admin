@@ -5,13 +5,14 @@ import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
 // GET /api/admin/categories/[id] - Get single category
 export async function GET(
   request: NextRequest, 
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = requireAdminAuth(request.headers, request.cookies);
     if (!authResult.ok) return unauthorizedResponse();
 
-    const categoryId = parseInt(params.id);
+    const resolvedParams = await params;
+    const categoryId = parseInt(resolvedParams.id);
     if (isNaN(categoryId)) {
       return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
     }
@@ -32,13 +33,14 @@ export async function GET(
 // PATCH /api/admin/categories/[id] - Update category
 export async function PATCH(
   request: NextRequest, 
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = requireAdminAuth(request.headers, request.cookies);
     if (!authResult.ok) return unauthorizedResponse();
 
-    const categoryId = parseInt(params.id);
+    const resolvedParams = await params;
+    const categoryId = parseInt(resolvedParams.id);
     if (isNaN(categoryId)) {
       return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
     }
