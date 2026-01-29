@@ -11,6 +11,7 @@ interface CategoryFormData {
   display_name: string;
   description: string;
   image: string;
+  is_active: boolean;
 }
 
 interface Category {
@@ -39,6 +40,7 @@ export default function Categories() {
     display_name: '',
     description: '',
     image: '',
+    is_active: true,
   });
 
   // Load categories on component mount
@@ -51,8 +53,8 @@ export default function Categories() {
       setLoadingCategories(true);
       const token = localStorage.getItem('token');
       const url = showDeleted 
-        ? '/api/admin/categories?include_deleted=true'
-        : '/api/admin/categories';
+        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories?include_deleted=true`
+        : `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories`;
       
       const response = await fetch(url, {
         headers: {
@@ -98,11 +100,25 @@ export default function Categories() {
 
     try {
       const token = localStorage.getItem('token');
+      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories`;
       const url = editingCategory 
-        ? `/api/admin/categories/${editingCategory.id}`
-        : '/api/admin/categories/create';
+        ? `${baseUrl}/${editingCategory.id}`
+        : `${baseUrl}/create`;
       
       const method = editingCategory ? 'PATCH' : 'POST';
+
+      let requestBody: any = { ...formData };
+
+      // If imageFile is present, convert to base64
+      if (imageFile) {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(imageFile);
+        });
+        requestBody.image = base64;
+      }
 
       const response = await fetch(url, {
         method,
@@ -110,7 +126,7 @@ export default function Categories() {
           'Authorization': `Token ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(requestBody),
       });
 
       const result = await response.json();
@@ -127,6 +143,7 @@ export default function Categories() {
         display_name: '',
         description: '',
         image: '',
+        is_active: true,
       });
       setImageFile(null);
       setShowCreateForm(false);
@@ -147,6 +164,7 @@ export default function Categories() {
       display_name: category.display_name,
       description: category.description,
       image: category.image || '',
+      is_active: category.is_active,
     });
     setShowCreateForm(true);
   };
@@ -158,7 +176,7 @@ export default function Categories() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/categories/${categoryId}/delete`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories/${categoryId}/delete`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Token ${token}`,
@@ -182,7 +200,7 @@ export default function Categories() {
   const handleRestore = async (categoryId: number) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/admin/categories/${categoryId}/restore`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories/${categoryId}/restore`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Token ${token}`,
@@ -203,12 +221,38 @@ export default function Categories() {
     }
   };
 
+  const handleToggleActive = async (categoryId: number, isActive: boolean) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories/${categoryId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Token ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_active: isActive }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to update category status');
+      }
+
+      toast.success(`Category ${isActive ? 'activated' : 'deactivated'} successfully!`);
+      loadCategories();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update category status');
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
       display_name: '',
       description: '',
       image: '',
+      is_active: true,
     });
     setImageFile(null);
     setEditingCategory(null);
@@ -366,6 +410,13 @@ export default function Categories() {
                               ) : (
                                 <>
                                   <button
+                                    onClick={() => handleToggleActive(category.id, !category.is_active)}
+                                    className={`p-1 ${category.is_active ? 'text-yellow-400 hover:text-yellow-300' : 'text-green-400 hover:text-green-300'}`}
+                                    title={category.is_active ? 'Deactivate category' : 'Activate category'}
+                                  >
+                                    <Eye size={16} />
+                                  </button>
+                                  <button
                                     onClick={() => handleEdit(category)}
                                     className="text-blue-400 hover:text-blue-300 p-1"
                                     title="Edit category"
@@ -497,6 +548,20 @@ export default function Categories() {
                   </div>
                 )}
               </div>
+            </div>
+
+            {/* Active Status */}
+            <div>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active}
+                  onChange={(e) => setFormData(prev => ({ ...prev, is_active: e.target.checked }))}
+                  className="w-5 h-5 text-blue-600 bg-slate-600 border-slate-500 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="text-sm font-medium text-slate-300">Active Category</span>
+              </label>
+              <p className="text-xs text-slate-400 mt-1">Inactive categories won't be displayed to customers</p>
             </div>
 
             {/* Submit Button */}
