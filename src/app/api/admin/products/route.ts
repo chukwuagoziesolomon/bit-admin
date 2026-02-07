@@ -100,7 +100,32 @@ export async function GET(request: NextRequest) {
     });
 
     // Return simplified payload suitable for dropdowns
-    const simplified = products.map(p => ({
+    interface SimplifiedProduct {
+      id: number;
+      name: string;
+      sku: string;
+      price: string;
+      is_coupon: boolean;
+    }
+
+    interface Product {
+      id: number;
+      name: string;
+      sku: string;
+      price: string;
+      is_coupon: boolean;
+      category: {
+      id: number;
+      name: string;
+      };
+      brand: {
+      id: number;
+      name: string;
+      };
+      // Add other fields as needed
+    }
+
+    const simplified: SimplifiedProduct[] = products.map((p: Product): SimplifiedProduct => ({
       id: p.id,
       name: p.name,
       sku: p.sku,

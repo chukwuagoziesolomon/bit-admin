@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    const result = deals.map((d) => ({
+    const result = deals.map((d: any) => ({
       ...d,
       product_data: d.product,
     }));
