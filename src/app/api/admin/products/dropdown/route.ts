@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { products as mockProducts } from '../../daily-deal/data';
 import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
+import { prisma } from '@/server/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         const res = await fetch(url, { headers });
         if (!res.ok) {
           console.error('External products dropdown returned', res.status);
-          // fallback to mock data below
+          // fallback to database below
         } else {
           const data = await res.json();
           return NextResponse.json(data);
@@ -30,9 +30,13 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Fallback: Return only active products id + name from mock
-    const active = mockProducts.filter((p) => p.is_active !== false).map((p) => ({ id: p.id, name: p.name }));
-    return NextResponse.json({ products: active });
+    // Fallback: Return only active products id + name from database
+    const products = await prisma.product.findMany({
+      where: { is_active: true },
+      select: { id: true, name: true }
+    });
+
+    return NextResponse.json({ products });
   } catch (err) {
     console.error('Error in products dropdown:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
