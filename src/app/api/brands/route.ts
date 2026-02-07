@@ -12,7 +12,7 @@ export async function GET() {
     }
   });
 
-  const results = brands.map(brand => ({
+  const results = brands.map((brand: any) => ({
     ...brand,
     product_count: brand._count.products
   }));
