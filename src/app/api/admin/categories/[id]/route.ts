@@ -111,22 +111,6 @@ export async function PATCH(
       message: 'Category updated successfully',
       category: updatedCategory
     });
-    const updatedCategory = {
-      ...category,
-      ...(name && { name: name.toLowerCase().trim() }),
-      ...(display_name && { display_name: display_name.trim() }),
-      ...(description !== undefined && { description: description?.trim() || '' }),
-      ...(image !== undefined && { image: image?.trim() || undefined }),
-      ...(is_active !== undefined && { is_active: Boolean(is_active) }),
-      updated_at: new Date().toISOString(),
-    };
-
-    categories[categoryIndex] = updatedCategory;
-
-    return NextResponse.json({ 
-      success: true, 
-      category: updatedCategory 
-    });
 
   } catch (err) {
     console.error('Error updating category:', err);
