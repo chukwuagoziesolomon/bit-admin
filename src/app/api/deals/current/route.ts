@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
       include: { product: true }
     });
 
-    const result = deals.map((d) => {
+    const result = deals.map((d: any) => {
       const product = d.product ? { id: d.product.id, name: d.product.name, price: Number(d.product.price) } : null;
       return toPublicDeal(d as any, product);
     });
