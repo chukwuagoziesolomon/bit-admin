@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { categories } from '../route';
 import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
+import { prisma } from '@/server/db';
 
 // GET /api/admin/categories/[id] - Get single category
 export async function GET(
@@ -11,13 +11,20 @@ export async function GET(
     const authResult = requireAdminAuth(request.headers, request.cookies);
     if (!authResult.ok) return unauthorizedResponse();
 
+    if (!prisma) {
+      return NextResponse.json({ error: 'Database not configured' }, { status: 500 });
+    }
+
     const resolvedParams = await params;
     const categoryId = parseInt(resolvedParams.id);
     if (isNaN(categoryId)) {
       return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
     }
 
-    const category = categories.find(cat => cat.id === categoryId);
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId }
+    });
+
     if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
@@ -45,12 +52,14 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
     }
 
-    const categoryIndex = categories.findIndex(cat => cat.id === categoryId);
-    if (categoryIndex === -1) {
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId }
+    });
+
+    if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
-    const category = categories[categoryIndex];
     const body = await request.json();
     const { name, display_name, description, image, is_active } = body;
 
@@ -64,11 +73,18 @@ export async function PATCH(
       }
 
       // Check if name already exists (excluding current category)
-      const existingCategory = categories.find(
-        cat => cat.name.toLowerCase() === name.toLowerCase() && 
-        cat.id !== categoryId && 
-        !cat.is_deleted
-      );
+      const existingCategory = await prisma.category.findFirst({
+        where: {
+          name: {
+            equals: name,
+            mode: 'insensitive'
+          },
+          id: {
+            not: categoryId
+          },
+          is_deleted: false
+        }
+      });
       
       if (existingCategory) {
         return NextResponse.json({ 
@@ -78,6 +94,23 @@ export async function PATCH(
     }
 
     // Update category fields
+    const updateData: any = { updated_at: new Date() };
+    if (name !== undefined) updateData.name = name;
+    if (display_name !== undefined) updateData.display_name = display_name;
+    if (description !== undefined) updateData.description = description;
+    if (image !== undefined) updateData.image = image;
+    if (is_active !== undefined) updateData.is_active = is_active;
+
+    const updatedCategory = await prisma.category.update({
+      where: { id: categoryId },
+      data: updateData
+    });
+
+    return NextResponse.json({ 
+      success: true,
+      message: 'Category updated successfully',
+      category: updatedCategory
+    });
     const updatedCategory = {
       ...category,
       ...(name && { name: name.toLowerCase().trim() }),

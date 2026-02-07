@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { categories } from '../../route';
 import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
+import { prisma } from '@/server/db';
 
 // DELETE /api/admin/categories/[id]/delete - Soft delete category
 export async function DELETE(
@@ -17,23 +17,27 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
     }
 
-    const categoryIndex = categories.findIndex(cat => cat.id === categoryId);
-    if (categoryIndex === -1) {
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId }
+    });
+
+    if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
-    const category = categories[categoryIndex];
     if (category.is_deleted) {
       return NextResponse.json({ error: 'Category is already deleted' }, { status: 400 });
     }
 
     // Soft delete - mark as deleted instead of removing
-    categories[categoryIndex] = {
-      ...category,
-      is_deleted: true,
-      is_active: false,
-      updated_at: new Date().toISOString(),
-    };
+    await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        is_deleted: true,
+        is_active: false,
+        updated_at: new Date(),
+      }
+    });
 
     return NextResponse.json({ 
       success: true, 

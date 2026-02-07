@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { categories, getNextCategoryId, CategoryItem } from '../route';
 import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
+import { prisma } from '@/server/db';
 import fs from 'fs';
 import path from 'path';
 
@@ -80,9 +80,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if category name already exists (case insensitive)
-    const existingCategory = categories.find(
-      cat => cat.name.toLowerCase() === name.toLowerCase() && !cat.is_deleted
-    );
+    const existingCategory = await prisma.category.findFirst({
+      where: {
+        name: {
+          equals: name,
+          mode: 'insensitive'
+        },
+        is_deleted: false
+      }
+    });
     
     if (existingCategory) {
       return NextResponse.json({ 
@@ -98,20 +104,16 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const now = new Date().toISOString();
-    const newCategory: CategoryItem = {
-      id: getNextCategoryId(),
-      name: name.toLowerCase().trim(),
-      display_name: display_name.trim(),
-      description: description.trim(),
-      image: image && image.trim() ? image.trim() : undefined,
-      is_active: is_active,
-      is_deleted: false,
-      created_at: now,
-      updated_at: now,
-    };
-
-    categories.push(newCategory);
+    const newCategory = await prisma.category.create({
+      data: {
+        name: name.toLowerCase().trim(),
+        display_name: display_name.trim(),
+        description: description.trim(),
+        image: image && image.trim() ? image.trim() : undefined,
+        is_active: is_active,
+        is_deleted: false,
+      }
+    });
 
     return NextResponse.json({ 
       success: true, 

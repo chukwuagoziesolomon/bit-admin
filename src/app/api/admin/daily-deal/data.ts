@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { prisma } from '@/server/db';
 
 export interface ProductItem {
   id: number;
@@ -27,22 +28,6 @@ export interface DailyDealItem {
   terms_and_conditions?: string | null;
   cta_url?: string | null;
   deal_price_usdt?: string | number | null;
-}
-
-// Mock products - replace with DB in production
-export const products: ProductItem[] = [
-  { id: 1, name: 'Wireless Earbuds', price: 79.99, is_active: true },
-  { id: 2, name: 'Smartphone X', price: 499.99, is_active: true },
-  { id: 3, name: '4K Smart TV', price: 899.99, is_active: true },
-  { id: 4, name: 'BitGadgetz ₦500 Coupon', price: 500.0, is_active: true },
-];
-
-// In-memory deals store (dev only)
-export const deals: DailyDealItem[] = [];
-
-let nextDealId = 1;
-export function getNextDealId() {
-  return nextDealId++;
 }
 
 export function computeStatus(startIso: string, endIso: string) {

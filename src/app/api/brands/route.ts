@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory storage for brands (in a real app, this would be a database)
-const brands: any[] = [];
+import { prisma } from '@/server/db';
 
 // GET /api/brands/ - List all active brands
 export async function GET() {
-  const activeBrands = brands.filter(brand => brand.is_active);
+  const brands = await prisma.brand.findMany({
+    where: { is_active: true },
+    include: {
+      _count: {
+        select: { products: true }
+      }
+    }
+  });
+
+  const results = brands.map(brand => ({
+    ...brand,
+    product_count: brand._count.products
+  }));
+
   return NextResponse.json({
-    count: activeBrands.length,
+    count: results.length,
     next: null,
     previous: null,
-    results: activeBrands,
+    results,
   });
 }
 
@@ -37,22 +48,26 @@ export async function POST(request: NextRequest) {
     // Mock logo upload (in a real app, upload to Cloudinary and get URL)
     const logo = `https://cloudinary.com/.../brand_logos/${name}_logo.jpg`;
 
-    const newBrand = {
-      id: brands.length + 1,
-      name,
-      display_name,
-      description,
-      logo,
-      website,
-      is_active: true,
-      product_count: 0,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    const newBrand = await prisma.brand.create({
+      data: {
+        name,
+        display_name,
+        description,
+        logo,
+        website,
+        is_active: true,
+      },
+      include: {
+        _count: {
+          select: { products: true }
+        }
+      }
+    });
 
-    brands.push(newBrand);
-
-    return NextResponse.json(newBrand, { status: 201 });
+    return NextResponse.json({
+      ...newBrand,
+      product_count: newBrand._count.products
+    }, { status: 201 });
   } catch (error) {
     return NextResponse.json({ error: 'Invalid form data' }, { status: 400 });
   }

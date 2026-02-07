@@ -333,7 +333,7 @@ export default function Products() {
 
       // choose endpoint and method depending on whether we're editing
       const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products`;
-      const endpoint = editingProductId ? `${baseUrl}/${editingProductId}/` : `${baseUrl}/`;
+      const endpoint = editingProductId ? `${baseUrl}/${editingProductId}/update/` : `${baseUrl}/`;
       const method = editingProductId ? 'PATCH' : 'POST';
 
       const response = await fetch(endpoint, {
@@ -353,8 +353,15 @@ export default function Products() {
         throw new Error(errorMessages);
       }
 
-      toast.success(formData.is_coupon ? 'Coupon created successfully!' : 'Product created successfully!');
+      if (editingProductId) {
+        toast.success(formData.is_coupon ? 'Coupon updated successfully!' : 'Product updated successfully!');
+      } else {
+        toast.success(formData.is_coupon ? 'Coupon created successfully!' : 'Product created successfully!');
+      }
       
+      // Reset form and editing state
+      setEditingProductId(null);
+      setExistingMainImageUrl(null);
       setFormData({
         name: '',
         slug: '',
@@ -384,7 +391,7 @@ export default function Products() {
       setAdditionalImages([]);
 
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to create product');
+      toast.error(error instanceof Error ? error.message : (editingProductId ? 'Failed to update product' : 'Failed to create product'));
     } finally {
       setLoading(false);
     }
@@ -433,16 +440,61 @@ export default function Products() {
 
           {activeTab === 'create' && (
             <motion.div
-              className="flex items-center gap-4 mb-8"
+              className="flex items-center justify-between gap-4 mb-8"
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
             >
-              <Plus className="text-blue-400" size={32} />
-              <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-white">Create New Product</h1>
-                <p className="text-slate-400">Add a new product to your inventory</p>
+              <div className="flex items-center gap-4">
+                {editingProductId ? <Edit className="text-blue-400" size={32} /> : <Plus className="text-blue-400" size={32} />}
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-bold text-white">
+                    {editingProductId ? 'Update Product' : 'Create New Product'}
+                  </h1>
+                  {editingProductId && (
+                    <p className="text-gray-400 text-sm mt-1">Editing product ID: {editingProductId}</p>
+                  )}
+                </div>
               </div>
+              {editingProductId && (
+                <button
+                  onClick={() => {
+                    setEditingProductId(null);
+                    setExistingMainImageUrl(null);
+                    setFormData({
+                      name: '',
+                      slug: '',
+                      category_input: '',
+                      description: '',
+                      short_description: '',
+                      price: '',
+                      price_usdt: '',
+                      discount_percentage: '',
+                      stock_quantity: '',
+                      product_condition: '',
+                      sku: '',
+                      brand: '',
+                      brand_input: '',
+                      model: '',
+                      colors: [],
+                      storage_options: [],
+                      ram_options: [],
+                      specifications: '',
+                      features: [],
+                      is_featured: false,
+                      is_active: true,
+                      is_coupon: false,
+                      coupon_value: '',
+                    });
+                    setMainImage(null);
+                    setAdditionalImages([]);
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                >
+                  <X size={18} />
+                  Cancel Edit
+                </button>
+              )}
             </motion.div>
           )}
 
@@ -1294,12 +1346,18 @@ export default function Products() {
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      {formData.is_coupon ? 'Creating Coupon...' : 'Creating Product...'}
+                      {editingProductId 
+                        ? (formData.is_coupon ? 'Updating Coupon...' : 'Updating Product...')
+                        : (formData.is_coupon ? 'Creating Coupon...' : 'Creating Product...')
+                      }
                     </>
                   ) : (
                     <>
-                      <Plus size={20} />
-                      {formData.is_coupon ? 'Create Coupon' : 'Create Product'}
+                      {editingProductId ? <Edit size={20} /> : <Plus size={20} />}
+                      {editingProductId
+                        ? (formData.is_coupon ? 'Update Coupon' : 'Update Product')
+                        : (formData.is_coupon ? 'Create Coupon' : 'Create Product')
+                      }
                     </>
                   )}
                 </button>

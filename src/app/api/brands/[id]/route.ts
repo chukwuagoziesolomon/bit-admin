@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// In-memory storage for brands (in a real app, this would be a database)
-const brands: any[] = [];
+import { prisma } from '@/server/db';
 
 // DELETE /api/brands/[id] - Delete a brand (Admin only)
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -13,14 +11,30 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
   const { id } = await params;
   const brandId = parseInt(id);
-  const brandIndex = brands.findIndex(brand => brand.id === brandId);
 
-  if (brandIndex === -1) {
+  const brand = await prisma.brand.findUnique({
+    where: { id: brandId },
+    include: {
+      _count: {
+        select: { products: true }
+      }
+    }
+  });
+
+  if (!brand) {
     return NextResponse.json({ error: 'Brand not found' }, { status: 404 });
   }
 
   // In a real app, you might want to check if the brand has associated products before deleting
-  brands.splice(brandIndex, 1);
+  if (brand._count.products > 0) {
+    return NextResponse.json({ 
+      error: `Cannot delete brand with ${brand._count.products} associated products` 
+    }, { status: 400 });
+  }
+
+  await prisma.brand.delete({
+    where: { id: brandId }
+  });
 
   return NextResponse.json({ message: 'Brand deleted successfully' });
 }

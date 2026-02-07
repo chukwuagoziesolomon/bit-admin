@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { categories } from '../../route';
 import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
+import { prisma } from '@/server/db';
 
 // PATCH /api/admin/categories/[id]/restore - Restore deleted category
 export async function PATCH(
@@ -17,28 +17,32 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid category ID' }, { status: 400 });
     }
 
-    const categoryIndex = categories.findIndex(cat => cat.id === categoryId);
-    if (categoryIndex === -1) {
+    const category = await prisma.category.findUnique({
+      where: { id: categoryId }
+    });
+
+    if (!category) {
       return NextResponse.json({ error: 'Category not found' }, { status: 404 });
     }
 
-    const category = categories[categoryIndex];
     if (!category.is_deleted) {
       return NextResponse.json({ error: 'Category is not deleted' }, { status: 400 });
     }
 
     // Restore category
-    categories[categoryIndex] = {
-      ...category,
-      is_deleted: false,
-      is_active: true,
-      updated_at: new Date().toISOString(),
-    };
+    const restoredCategory = await prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        is_deleted: false,
+        is_active: true,
+        updated_at: new Date(),
+      }
+    });
 
     return NextResponse.json({ 
       success: true, 
       message: 'Category restored successfully',
-      category: categories[categoryIndex]
+      category: restoredCategory
     });
 
   } catch (err) {

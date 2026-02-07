@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-// import { db } from '@/lib/db'; // Import your database connection
+import { prisma } from '@/server/db';
 
 // POST /api/admin/products/ - Create a new product
 export async function POST(request: NextRequest) {
@@ -31,27 +31,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(errors, { status: 400 });
     }
 
-    // Mock product creation - replace with actual database insert
-    const newProduct = {
-      id: Date.now(), // Mock ID
-      name,
-      sku,
-      price: price.toString(),
-      coupon_value: is_coupon ? coupon_value : null,
-      is_coupon,
-      category: typeof category === 'object' ? category : { id: category, name: category, display_name: category },
-      brand: typeof brand === 'object' ? brand : { id: brand, name: brand, display_name: brand },
-      description,
-      short_description,
-      stock_quantity,
-      product_condition,
-      is_active,
-      is_featured,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-
-    // In a real app, save to database here
+    // Create product in database
+    const newProduct = await prisma.product.create({
+      data: {
+        name,
+        sku,
+        price: price.toString(),
+        coupon_value: is_coupon ? coupon_value : null,
+        is_coupon,
+        category_id: typeof category === 'object' ? category.id : category,
+        brand_id: typeof brand === 'object' ? brand.id : brand,
+        description,
+        short_description,
+        stock_quantity,
+        product_condition,
+        is_active,
+        is_featured,
+      },
+      include: {
+        category: true,
+        brand: true
+      }
+    });
 
     return NextResponse.json(newProduct, { status: 201 });
   } catch (error) {
@@ -75,63 +76,31 @@ export async function GET(request: NextRequest) {
     const page = parseInt(url.searchParams.get('page') || '1', 10) || 1;
     const per_page = parseInt(url.searchParams.get('per_page') || url.searchParams.get('perPage') || '20', 10) || 20;
 
-    // Mock data for now - replace with actual database queries
-    const products = [
-      {
-        id: 123,
-        name: "BitGadgetz ₦500 Coupon",
-        sku: "BGZ-500",
-        price: "500.00",
-        coupon_value: "500.00",
-        is_coupon: true,
-        category: { id: 10, name: "coupons", display_name: "Coupons" },
-        brand: { id: 5, name: "bitgadgetz", display_name: "BitGadgetz" },
-      },
-      {
-        id: 124,
-        name: "BitGadgetz ₦1000 Coupon",
-        sku: "BGZ-1000",
-        price: "1000.00",
-        coupon_value: "1000.00",
-        is_coupon: true,
-        category: { id: 10, name: "coupons", display_name: "Coupons" },
-        brand: { id: 5, name: "bitgadgetz", display_name: "BitGadgetz" },
-      },
-      {
-        id: 125,
-        name: "BitGadgetz ₦2000 Coupon",
-        sku: "BGZ-2000",
-        price: "2000.00",
-        coupon_value: "2000.00",
-        is_coupon: true,
-        category: { id: 10, name: "coupons", display_name: "Coupons" },
-        brand: { id: 5, name: "bitgadgetz", display_name: "BitGadgetz" },
-      },
-      {
-        id: 126,
-        name: "iPhone 15 Pro",
-        sku: "IPH-15P",
-        price: "1500000.00",
-        coupon_value: null,
-        is_coupon: false,
-        category: { id: 1, name: "phones", display_name: "Phones" },
-        brand: { id: 1, name: "apple", display_name: "Apple" },
-      }
-    ];
+    // Build where clause for search
+    const where = search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { sku: { contains: search, mode: 'insensitive' as const } },
+      ]
+    } : {};
 
-    // Filter by search query (match id, name, sku)
-    const filtered = products.filter(p => {
-      if (!search) return true;
-      const s = search.toLowerCase();
-      return String(p.id).includes(s) || p.name.toLowerCase().includes(s) || (p.sku && p.sku.toLowerCase().includes(s));
+    // Get total count
+    const totalCount = await prisma.product.count({ where });
+
+    // Get products with pagination
+    const products = await prisma.product.findMany({
+      where,
+      include: {
+        category: true,
+        brand: true
+      },
+      skip: (page - 1) * per_page,
+      take: per_page,
+      orderBy: { created_at: 'desc' }
     });
 
-    // Simple pagination
-    const start = (page - 1) * per_page;
-    const paged = filtered.slice(start, start + per_page);
-
     // Return simplified payload suitable for dropdowns
-    const simplified = paged.map(p => ({
+    const simplified = products.map(p => ({
       id: p.id,
       name: p.name,
       sku: p.sku,
@@ -141,8 +110,8 @@ export async function GET(request: NextRequest) {
 
     const result = {
       results: simplified,
-      count: filtered.length,
-      next: start + per_page < filtered.length ? page + 1 : null,
+      count: totalCount,
+      next: (page * per_page) < totalCount ? page + 1 : null,
       previous: page > 1 ? page - 1 : null,
     };
 

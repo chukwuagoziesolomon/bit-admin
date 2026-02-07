@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deals } from '../../data';
 import { requireAdminAuth, unauthorizedResponse } from '@/lib/serverAuth';
+import { prisma } from '@/server/db';
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ deal_id: string }> }) {
   try {
@@ -9,10 +9,17 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     const resolved = await params;
     const id = Number(resolved.deal_id);
-    const idx = deals.findIndex((d) => d.id === id);
-    if (idx === -1) return NextResponse.json({ error: 'Deal not found.' }, { status: 404 });
+    
+    const deal = await prisma.dailyDeal.findUnique({
+      where: { id }
+    });
 
-    deals.splice(idx, 1);
+    if (!deal) return NextResponse.json({ error: 'Deal not found.' }, { status: 404 });
+
+    await prisma.dailyDeal.delete({
+      where: { id }
+    });
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('Error deleting deal:', err);
