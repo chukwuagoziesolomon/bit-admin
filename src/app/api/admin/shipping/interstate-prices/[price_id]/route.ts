@@ -5,7 +5,7 @@ import { interstatePrices } from '../data';
 export async function GET(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {
   // Mock admin authentication check
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Token ')) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

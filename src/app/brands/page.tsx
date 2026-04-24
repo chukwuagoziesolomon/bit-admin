@@ -34,6 +34,7 @@ export default function Brands() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(false);
   const [brandsLoading, setBrandsLoading] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState<string>('');
   const [editingBrand, setEditingBrand] = useState<Brand | null>(null);
   const [formData, setFormData] = useState<BrandFormData>({
@@ -55,16 +56,17 @@ export default function Brands() {
     setBrandsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/brands/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/brands/`, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       if (!response.ok) {
         throw new Error('Failed to fetch brands');
       }
-      const result = await response.json();
-      setBrands(result.results || result);
+      const json = await response.json();
+      const result = json.data ?? json;
+      setBrands(result.brands || result.results || (Array.isArray(result) ? result : []));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to fetch brands');
     } finally {
@@ -85,8 +87,7 @@ export default function Brands() {
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files[0]) {
-      // For now, store the file URL (in production, handle Cloudinary upload on backend)
-      // This is a placeholder - the actual upload should be handled by the backend
+      setLogoFile(files[0]);
       const reader = new FileReader();
       reader.onloadend = () => {
         setLogoUrl(reader.result as string);
@@ -97,6 +98,7 @@ export default function Brands() {
 
   const removeLogo = () => {
     setLogoUrl('');
+    setLogoFile(null);
   };
 
   const handleEdit = (brand: Brand) => {
@@ -117,10 +119,10 @@ export default function Brands() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/brands/${brandId}/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/brands/${brandId}/`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -141,23 +143,33 @@ export default function Brands() {
 
     try {
       const token = localStorage.getItem('token');
-      const dataToSend = {
-        ...formData,
-        logo: logoUrl || formData.logo, // Use new logo URL or keep existing one
-      };
 
-      const method = editingBrand ? 'PUT' : 'POST';
+      // Use FormData to support file upload for logo
+      const formDataToSend = new FormData();
+      formDataToSend.append('name', formData.name);
+      formDataToSend.append('display_name', formData.display_name);
+      if (formData.description) formDataToSend.append('description', formData.description);
+      if (formData.website) formDataToSend.append('website', formData.website);
+      formDataToSend.append('is_active', String(formData.is_active));
+
+      // Attach logo file if selected
+      if (logoFile) {
+        formDataToSend.append('logo', logoFile);
+      } else if (formData.logo) {
+        formDataToSend.append('logo', formData.logo);
+      }
+
+      const method = editingBrand ? 'PATCH' : 'POST';
       const url = editingBrand
-        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/brands/${editingBrand.id}/`
-        : `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/brands/`;
+        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/brands/${editingBrand.id}/`
+        : `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/brands/create/`;
 
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Token ${token}`,
-          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(dataToSend),
+        body: formDataToSend,
       });
 
       const result = await response.json();
@@ -182,6 +194,7 @@ export default function Brands() {
         is_active: true,
       });
       setLogoUrl('');
+      setLogoFile(null);
       setEditingBrand(null);
 
       if (activeTab === 'list') {

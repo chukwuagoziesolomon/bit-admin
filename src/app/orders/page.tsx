@@ -7,62 +7,24 @@ import toast, { Toaster } from 'react-hot-toast';
 import Sidebar from '../../components/Sidebar';
 
 interface Order {
-   id: number;
-   order_id: string;
-   first_name: string;
-   last_name: string;
-   email: string;
-   phone_number: string;
-   street_address: string;
-   city: string;
-   state: string;
-   postal_code: string;
-   country: string;
-   payment_method: string;
-   cart_items: { [key: string]: number };
-   subtotal: string;
-   shipping_cost: string;
-   total_amount: string;
-   status: string;
-   payment_reference?: string;
-   additional_info?: string;
-   created_at: string;
-   updated_at: string;
- }
+  order_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  payment_method: string | null;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
 
- interface Pagination {
-   current_page: number;
-   per_page: number;
-   total_orders: number;
-   total_pages: number;
-   has_next: boolean;
-   has_previous: boolean;
- }
-
- interface Statistics {
-   total: number;
-   pending: number;
-   payment_processing: number;
-   paid: number;
-   processing: number;
-   en_route: number;
-   shipped: number;
-   delivered: number;
-   cancelled: number;
-   refunded: number;
- }
-
- interface FiltersApplied {
-   status: string | null;
-   search: string | null;
- }
-
- interface ApiResponse {
-   orders: Order[];
-   pagination: Pagination;
-   statistics: Statistics;
-   filters_applied: FiltersApplied;
- }
+interface ApiResponse {
+  count: number;
+  page: number;
+  pageSize: number;
+  pages: number;
+  results: Order[];
+}
 
 export default function Orders() {
    const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -107,21 +69,22 @@ export default function Orders() {
       const token = localStorage.getItem('token');
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        per_page: perPage.toString(),
+        page_size: perPage.toString(),
       });
 
       if (searchQuery) params.append('search', searchQuery);
       if (statusFilter) params.append('status', statusFilter);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/?${params}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/orders/?${params}`, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       if (!response.ok) {
         throw new Error('Failed to fetch orders');
       }
-      const result: ApiResponse = await response.json();
+      const json = await response.json();
+      const result: ApiResponse = json.data ?? json;
       setData(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -134,11 +97,11 @@ export default function Orders() {
     setUpdating(orderId);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/${orderId}/status/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/orders/${orderId}/status/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({ status }),
       });
@@ -165,7 +128,7 @@ export default function Orders() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           manual_override: true,
@@ -204,11 +167,11 @@ export default function Orders() {
       if (trackingNotes.trim()) trackingData.tracking_notes = trackingNotes.trim();
       if (estimatedDelivery) trackingData.estimated_delivery = estimatedDelivery;
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/${orderId}/tracking/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/orders/${orderId}/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify(trackingData),
       });
@@ -233,11 +196,11 @@ export default function Orders() {
   const processRefund = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/${orderId}/refund/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/orders/${orderId}/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           refund_reason: refundReason,
@@ -265,11 +228,11 @@ export default function Orders() {
   const confirmPaymentWithDetails = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/${orderId}/confirm-payment/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/orders/${orderId}/override-payment/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           payment_reference: paymentReference,
@@ -295,11 +258,11 @@ export default function Orders() {
   const overridePayment = async (orderId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/orders/${orderId}/override-payment/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/orders/${orderId}/override-payment/`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           status: 'paid',
@@ -449,32 +412,7 @@ export default function Orders() {
           </motion.div>
 
           {/* Statistics */}
-          <motion.div
-            className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-7 gap-4 mb-8"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              visible: {
-                transition: {
-                  staggerChildren: 0.1,
-                },
-              },
-            }}
-          >
-            {data && data.statistics && Object.entries(data.statistics).map(([key, value], index) => (
-              <motion.div
-                key={key}
-                className="bg-slate-700 p-4 rounded-lg text-center"
-                variants={{
-                  hidden: { opacity: 0, y: 20 },
-                  visible: { opacity: 1, y: 0 },
-                }}
-              >
-                <h3 className="text-sm font-semibold text-white capitalize">{key.replace('_', ' ')}</h3>
-                <p className="text-xl font-bold text-blue-400">{value}</p>
-              </motion.div>
-            ))}
-          </motion.div>
+          {/* (statistics not returned by current API) */}
 
           {/* Orders Table */}
           <motion.div
@@ -511,9 +449,9 @@ export default function Orders() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-600">
-                  {data.orders.map((order, index) => (
+                  {data.results.map((order, index) => (
                     <motion.tr
-                      key={order.id}
+                      key={order.order_id}
                       className="hover:bg-slate-600 transition-colors"
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
@@ -527,10 +465,6 @@ export default function Orders() {
                           {order.first_name} {order.last_name}
                         </div>
                         <div className="text-sm text-slate-400">{order.email}</div>
-                        <div className="text-sm text-slate-400">{order.phone_number}</div>
-                        <div className="text-xs text-slate-500 mt-1">
-                          {order.city}, {order.state}
-                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-white">
@@ -543,8 +477,8 @@ export default function Orders() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium text-white rounded-full ${getPaymentMethodColor(order.payment_method)}`}>
-                          {order.payment_method.replace('_', ' ')}
+                        <span className={`px-2 py-1 text-xs font-medium text-white rounded-full ${getPaymentMethodColor(order.payment_method ?? '')}`}>
+                          {(order.payment_method ?? 'N/A').replace('_', ' ')}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -605,7 +539,7 @@ export default function Orders() {
           </motion.div>
 
           {/* Pagination Controls */}
-          {data && data.pagination && (
+          {data && (
             <motion.div
               className="bg-slate-700 p-4 rounded-lg shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4"
               initial={{ opacity: 0, y: 20 }}
@@ -613,31 +547,28 @@ export default function Orders() {
               transition={{ delay: 0.3, duration: 0.6 }}
             >
               <div className="text-sm text-slate-400">
-                Showing {((data.pagination.current_page - 1) * data.pagination.per_page) + 1} to{' '}
-                {Math.min(data.pagination.current_page * data.pagination.per_page, data.pagination.total_orders)} of{' '}
-                {data.pagination.total_orders} orders
+                Showing {((data.page - 1) * data.pageSize) + 1}–{Math.min(data.page * data.pageSize, data.count)} of {data.count} orders
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={!data.pagination.has_previous}
+                  disabled={data.page <= 1}
                   className="px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                 >
                   Previous
                 </button>
 
                 <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, data.pagination.total_pages) }, (_, i) => {
-                    const pageNum = Math.max(1, data.pagination.current_page - 2) + i;
-                    if (pageNum > data.pagination.total_pages) return null;
-
+                  {Array.from({ length: Math.min(5, data.pages) }, (_, i) => {
+                    const pageNum = Math.max(1, data.page - 2) + i;
+                    if (pageNum > data.pages) return null;
                     return (
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
                         className={`px-3 py-2 rounded-lg transition-colors ${
-                          pageNum === data.pagination.current_page
+                          pageNum === data.page
                             ? 'bg-blue-600 text-white'
                             : 'bg-slate-600 hover:bg-slate-500 text-white'
                         }`}
@@ -649,8 +580,8 @@ export default function Orders() {
                 </div>
 
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(data.pagination.total_pages, prev + 1))}
-                  disabled={!data.pagination.has_next}
+                  onClick={() => setCurrentPage(prev => Math.min(data.pages, prev + 1))}
+                  disabled={data.page >= data.pages}
                   className="px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                 >
                   Next
@@ -711,19 +642,7 @@ export default function Orders() {
                 <div className="text-sm text-slate-400 space-y-1">
                   <p><strong>Customer:</strong> {selectedOrder.first_name} {selectedOrder.last_name}</p>
                   <p><strong>Email:</strong> {selectedOrder.email}</p>
-                  <p><strong>Phone:</strong> {selectedOrder.phone_number}</p>
-                  <p><strong>Address:</strong> {selectedOrder.street_address}, {selectedOrder.city}, {selectedOrder.state} {selectedOrder.postal_code}</p>
-                  <p><strong>Country:</strong> {selectedOrder.country}</p>
-                  <p><strong>Subtotal:</strong> ₦{parseFloat(selectedOrder.subtotal).toLocaleString()}</p>
-                  <p><strong>Shipping:</strong> ₦{parseFloat(selectedOrder.shipping_cost).toLocaleString()}</p>
-                  <p><strong>Total:</strong> ₦{parseFloat(selectedOrder.total_amount).toLocaleString()}</p>
-                  <p><strong>Items:</strong> {selectedOrder.cart_items ? Object.keys(selectedOrder.cart_items).length : 0} different products</p>
-                  {selectedOrder.payment_reference && (
-                    <p><strong>Payment Ref:</strong> {selectedOrder.payment_reference}</p>
-                  )}
-                  {selectedOrder.additional_info && (
-                    <p><strong>Notes:</strong> {selectedOrder.additional_info}</p>
-                  )}
+                  <p><strong>Total:</strong> ₦{selectedOrder.total_amount.toLocaleString()}</p>
                 </div>
               </div>
             </div>
@@ -741,15 +660,15 @@ export default function Orders() {
               <button
                 onClick={() => {
                   if (newStatus) {
-                    updateOrderStatus(selectedOrder.id.toString(), newStatus);
+                    updateOrderStatus(selectedOrder.order_id, newStatus);
                   } else {
                     toast.error('Please select a new status');
                   }
                 }}
-                disabled={updating === selectedOrder.id.toString()}
+                disabled={updating === selectedOrder.order_id}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors"
               >
-                {updating === selectedOrder.id.toString() ? 'Updating...' : 'Update Status'}
+                {updating === selectedOrder.order_id ? 'Updating...' : 'Update Status'}
               </button>
             </div>
           </motion.div>
@@ -842,7 +761,7 @@ export default function Orders() {
                 Cancel
               </button>
               <button
-                onClick={() => updateTracking(trackingModal.id.toString())}
+                onClick={() => updateTracking(trackingModal.order_id)}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 Update Tracking
@@ -904,7 +823,7 @@ export default function Orders() {
                 Cancel
               </button>
               <button
-                onClick={() => confirmPaymentWithDetails(paymentConfirmModal.id.toString())}
+                onClick={() => confirmPaymentWithDetails(paymentConfirmModal.order_id)}
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
               >
                 Confirm Payment
@@ -987,7 +906,7 @@ export default function Orders() {
                 Cancel
               </button>
               <button
-                onClick={() => processRefund(refundModal.id.toString())}
+                onClick={() => processRefund(refundModal.order_id)}
                 className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
               >
                 Process Refund
@@ -1014,7 +933,7 @@ export default function Orders() {
                 <span className="font-semibold">Current Status:</span> {paymentOverrideModal.status}
               </p>
               <p className="text-sm text-slate-300">
-                <span className="font-semibold">Amount:</span> ₦{parseFloat(paymentOverrideModal.total_amount).toLocaleString()}
+                <span className="font-semibold">Amount:</span> ₦{paymentOverrideModal.total_amount.toLocaleString()}
               </p>
             </div>
 
@@ -1078,7 +997,7 @@ export default function Orders() {
                 Cancel
               </button>
               <button
-                onClick={() => overridePayment(paymentOverrideModal.id.toString())}
+                onClick={() => overridePayment(paymentOverrideModal.order_id)}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 ✓ Override & Update

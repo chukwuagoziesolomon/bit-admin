@@ -7,7 +7,7 @@ import { motion } from 'framer-motion';
 import toast, { Toaster } from 'react-hot-toast';
 
 interface DropdownProduct {
-  id: number;
+  id: number | string;
   name: string;
 }
 
@@ -43,7 +43,7 @@ export default function DailyDeals() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [products, setProducts] = useState<DropdownProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<number | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState('');
   const [title, setTitle] = useState('');
   const [subtitle, setSubtitle] = useState('');
   const [dealPrice, setDealPrice] = useState('');
@@ -76,11 +76,12 @@ export default function DailyDeals() {
     try {
       setLoadingDeals(true);
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const res = await fetch(buildUrl('/api/admin/daily-deal/list/'), {
-        headers: token ? { Authorization: `Token ${token}` } : undefined,
+      const res = await fetch(buildUrl('/admin/daily-deals/list/'), {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!res.ok) throw new Error('Failed to load deals');
-      const data = await res.json();
+      const json = await res.json();
+      const data = json.data ?? json;
       setDeals(data.deals || []);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load deals');
@@ -93,12 +94,13 @@ export default function DailyDeals() {
     try {
       setLoadingProducts(true);
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const res = await fetch(buildUrl('/api/admin/products/dropdown/'), {
-        headers: token ? { Authorization: `Token ${token}` } : undefined,
+      const res = await fetch(buildUrl('/admin/products/'), {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       if (!res.ok) throw new Error('Failed to load products');
-      const data = await res.json();
-      setProducts(data.products || []);
+      const json = await res.json();
+      const data = json.data ?? json;
+      setProducts(data.products || data.results || []);
     } catch (e: any) {
       toast.error(e?.message || 'Failed to load products');
     } finally {
@@ -115,34 +117,32 @@ export default function DailyDeals() {
 
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const formData = new FormData();
-      formData.append('product', String(selectedProduct));
-      formData.append('title', title);
-      if (subtitle) formData.append('subtitle', subtitle);
-      formData.append('deal_price', dealPrice);
-      if (dealPriceUsdt) formData.append('deal_price_usdt', dealPriceUsdt);
-      if (originalPrice) formData.append('original_price', originalPrice);
-      if (maxQuantity) formData.append('max_quantity', maxQuantity);
-      if (dealDescription) formData.append('deal_description', dealDescription);
-      if (termsAndConditions) formData.append('terms_and_conditions', termsAndConditions);
-      if (ctaUrl) formData.append('cta_url', ctaUrl);
-      if (discountPercentage) {
-        const dp = discountPercentage.match(/^\d{1,3}(\.\d+)?$/) ? discountPercentage : String(Number(discountPercentage).toFixed(2));
-        formData.append('discount_percentage', dp);
-      }
-      formData.append('start_time', new Date(startTime).toISOString());
-      formData.append('end_time', new Date(endTime).toISOString());
-      formData.append('is_featured', isFeatured ? 'true' : 'false');
-      if (selectedImageFile) {
-        formData.append('deal_image', selectedImageFile);
-      }
 
-      const res = await fetch(buildUrl('/api/admin/daily-deal/create/'), {
+      const payload: Record<string, unknown> = {
+        product_id: selectedProduct,
+        title,
+        deal_price: parseFloat(dealPrice),
+        start_time: new Date(startTime).toISOString(),
+        end_time: new Date(endTime).toISOString(),
+      };
+      if (subtitle) payload.subtitle = subtitle;
+      if (dealPriceUsdt) payload.deal_price_usdt = parseFloat(dealPriceUsdt);
+      if (originalPrice) payload.original_price = parseFloat(originalPrice);
+      if (maxQuantity) payload.max_quantity = parseInt(maxQuantity, 10);
+      if (dealDescription) payload.deal_description = dealDescription;
+      if (termsAndConditions) payload.terms_and_conditions = termsAndConditions;
+      if (ctaUrl) payload.cta_url = ctaUrl;
+      if (discountPercentage) payload.discount_percentage = parseFloat(discountPercentage);
+      payload.is_featured = isFeatured;
+      if (mainImage) payload.deal_image = mainImage;
+
+      const res = await fetch(buildUrl('/admin/daily-deals/create/'), {
         method: 'POST',
         headers: {
-          ...(token ? { Authorization: `Token ${token}` } : {}),
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: formData,
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -151,7 +151,7 @@ export default function DailyDeals() {
       toast.success('Deal created');
       fetchDeals();
       // clear form
-      setSelectedProduct(null);
+      setSelectedProduct('');
       setTitle('');
       setSubtitle('');
       setDealPrice('');
@@ -176,7 +176,7 @@ export default function DailyDeals() {
 
   const startEdit = (deal: DealItem) => {
     setEditingDealId(deal.id);
-    setSelectedProduct(deal.product_id ?? null);
+    setSelectedProduct(deal.product_id != null ? String(deal.product_id) : '');
     setTitle(deal.title ?? '');
     setSubtitle(deal.subtitle ?? '');
     setDealPrice(String(deal.deal_price ?? ''));
@@ -196,11 +196,13 @@ export default function DailyDeals() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingDealId) return toast.error('No deal selected');
+    if (!selectedProduct) return toast.error('Select a product');
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       const isExternal = !!API_BASE;
+      const normalizedProduct = /^\d+$/.test(selectedProduct) ? Number(selectedProduct) : selectedProduct;
       const baseBody: any = {
-        product_id: selectedProduct,
+        product_id: normalizedProduct,
         title,
         subtitle,
         deal_price: Number(dealPrice),
@@ -226,11 +228,11 @@ export default function DailyDeals() {
         body.discount_percentage = orig && orig > 0 ? Math.round(((orig - deal) / orig) * 100) : 0;
       }
 
-      const res = await fetch(buildUrl(`/api/admin/daily-deal/${editingDealId}/update/`), {
+      const res = await fetch(buildUrl(`/admin/daily-deals/${editingDealId}/`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Token ${token}` } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify(body),
       });
@@ -241,7 +243,7 @@ export default function DailyDeals() {
       toast.success('Deal updated');
       setEditingDealId(null);
       // clear form
-      setSelectedProduct(null); setTitle(''); setSubtitle(''); setDealPrice(''); setStartTime(''); setEndTime('');
+      setSelectedProduct(''); setTitle(''); setSubtitle(''); setDealPrice(''); setStartTime(''); setEndTime('');
       setOriginalPrice(''); setDealPriceUsdt('');
       setIsFeatured(false); setMaxQuantity(''); setMainImage(''); setDealDescription(''); setTermsAndConditions(''); setCtaUrl('');
       fetchDeals();
@@ -254,9 +256,9 @@ export default function DailyDeals() {
     if (!confirm('Delete this deal?')) return;
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      const res = await fetch(buildUrl(`/api/admin/daily-deal/${id}/delete/`), {
+      const res = await fetch(buildUrl(`/admin/daily-deals/${id}/`), {
         method: 'DELETE',
-        headers: token ? { Authorization: `Token ${token}` } : undefined,
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || 'Failed to delete deal');
@@ -290,8 +292,8 @@ export default function DailyDeals() {
                 <div>
                   <label className="block text-sm text-slate-300 mb-1">Product</label>
                   <select
-                    value={selectedProduct ?? ''}
-                    onChange={(e) => setSelectedProduct(Number(e.target.value) || null)}
+                    value={selectedProduct}
+                    onChange={(e) => setSelectedProduct(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white"
                   >
                     <option value="">Select product</option>
@@ -401,7 +403,7 @@ export default function DailyDeals() {
                   <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">{editingDealId ? 'Save Changes' : 'Create Deal'}</button>
                   <button type="button" onClick={() => {
                     setEditingDealId(null);
-                    setSelectedProduct(null);
+                    setSelectedProduct('');
                     setTitle(''); setSubtitle(''); setDealPrice(''); setStartTime(''); setEndTime('');
                     setIsFeatured(false); setMaxQuantity(''); setMainImage(''); setDealDescription(''); setTermsAndConditions(''); setCtaUrl('');
                   }} className="px-4 py-2 bg-slate-600 text-white rounded">Reset</button>

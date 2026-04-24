@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { interstatePrices } from '../../data';
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ price_id: string }> }) {
@@ -11,7 +11,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
 async function handleUpdate(request: NextRequest, params: { price_id: string }) {
   const authHeader = request.headers.get('authorization');
-  if (!authHeader || !authHeader.startsWith('Token ')) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

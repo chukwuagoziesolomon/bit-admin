@@ -18,7 +18,7 @@ export default function Login() {
     setLoading(true);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/auth/admin/login/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/admin/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -28,10 +28,13 @@ export default function Login() {
 
       const data = await response.json();
 
-      if (response.ok && data.token) {
-        if (data.is_admin) {
+      // Backend wraps response in { success, data: { token, user, is_admin } }
+      const payload = data.data ?? data;
+
+      if (response.ok && payload.token) {
+        if (payload.is_admin) {
           // Store token using auth helper
-          setAuthToken(data.token);
+          setAuthToken(payload.token);
           router.push('/dashboard');
         } else {
           setError('Admin privileges required');
@@ -40,8 +43,8 @@ export default function Login() {
         setError('Admin privileges required');
       } else if (response.status === 400 && data.non_field_errors) {
         setError(data.non_field_errors[0] || 'Invalid credentials');
-      } else if (data.error) {
-        setError(data.error);
+      } else if (data.error || data.message) {
+        setError(data.error || data.message);
       } else {
         setError('Login failed. Please try again.');
       }

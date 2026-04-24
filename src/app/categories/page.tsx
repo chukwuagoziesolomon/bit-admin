@@ -53,19 +53,20 @@ export default function Categories() {
       setLoadingCategories(true);
       const token = localStorage.getItem('token');
       const url = showDeleted 
-        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories?include_deleted=true`
-        : `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories`;
+        ? `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/categories?include_deleted=true`
+        : `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/categories`;
       
       const response = await fetch(url, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
       if (!response.ok) throw new Error('Failed to load categories');
       
-      const result = await response.json();
-      setCategories(result.categories || []);
+      const json = await response.json();
+      const data = json.data ?? json;
+      setCategories(Array.isArray(data) ? data : (data.categories || []));
     } catch (error) {
       toast.error('Failed to load categories');
       console.error(error);
@@ -100,30 +101,26 @@ export default function Categories() {
 
     try {
       const token = localStorage.getItem('token');
-      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories`;
+      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/categories`;
       const url = editingCategory 
-        ? `${baseUrl}/${editingCategory.id}`
-        : `${baseUrl}/create`;
+        ? `${baseUrl}/${editingCategory.id}/`
+        : `${baseUrl}/create/`;
       
       const method = editingCategory ? 'PATCH' : 'POST';
 
-      let requestBody: any = { ...formData };
-
-      // If imageFile is present, convert to base64
-      if (imageFile) {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(imageFile);
-        });
-        requestBody.image = base64;
-      }
+      // Build payload — image field expects a URL string, not a file
+      const requestBody: Record<string, unknown> = {
+        name: formData.name,
+        display_name: formData.display_name,
+      };
+      if (formData.description) requestBody.description = formData.description;
+      if (formData.image) requestBody.image = formData.image;
+      if (editingCategory) requestBody.is_active = formData.is_active;
 
       const response = await fetch(url, {
         method,
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
@@ -176,10 +173,10 @@ export default function Categories() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories/${categoryId}/delete`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/categories/${categoryId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -200,10 +197,10 @@ export default function Categories() {
   const handleRestore = async (categoryId: number) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories/${categoryId}/restore`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/categories/${categoryId}/restore`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -224,10 +221,10 @@ export default function Categories() {
   const handleToggleActive = async (categoryId: number, isActive: boolean) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/categories/${categoryId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/categories/${categoryId}`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ is_active: isActive }),

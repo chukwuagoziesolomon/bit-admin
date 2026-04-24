@@ -75,9 +75,9 @@ export default function Banners() {
     setBannersLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/banners/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/banners/`, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -85,7 +85,8 @@ export default function Banners() {
         throw new Error('Failed to fetch banners');
       }
 
-      const data = await response.json();
+      const json = await response.json();
+      const data = json.data ?? json;
       setBanners(data.banners || []);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to fetch banners');
@@ -102,10 +103,10 @@ export default function Banners() {
     setDeleting(bannerId);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/banners/${bannerId}/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/banners/${bannerId}/`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -185,14 +186,14 @@ export default function Banners() {
       }
 
       // Determine endpoint and method for create vs edit
-      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/banners`;
+      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/banners`;
       const endpoint = editingBannerId ? `${baseUrl}/${editingBannerId}/` : `${baseUrl}/`;
       const method = editingBannerId ? 'PATCH' : 'POST';
 
       const response = await fetch(endpoint, {
         method,
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: formDataToSend,
       });

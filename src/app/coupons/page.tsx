@@ -11,40 +11,23 @@ import toast, { Toaster } from 'react-hot-toast';
 
 // Types
 interface Coupon {
-  id: number;
+  id: string;
   code: string;
-  coupon_type: string;
   discount_type: string;
-  discount_value: number;
+  discount_value: string | number;
   usage_limit: number;
   usage_count: number;
-  minimum_order_amount: number;
   expires_at: string | null;
   is_active: boolean;
   description: string;
   created_at: string;
-  updated_at: string;
-  assigned_to_email: string | null;
-  created_by: string;
 }
 
 interface CouponStats {
-  discount_coupons: {
-    total: number;
-    active: number;
-    expired: number;
-  };
-  coupon_codes: {
-    total: number;
-    used: number;
-    available: number;
-  };
-  most_used_coupons: Array<{
-    code: string;
-    usage_count: number;
-    usage_limit: number;
-    discount_value: number;
-  }>;
+  total_coupons: number;
+  active_coupons: number;
+  total_usage: number;
+  total_discount_given: number;
 }
 
 interface CouponCode {
@@ -60,19 +43,16 @@ interface CouponCode {
 
 interface CreateCouponData {
   code: string;
-  coupon_type: 'campaign' | 'individual';
   discount_type: 'percentage' | 'fixed';
   discount_value: number;
   usage_limit: number | null;
   minimum_order_amount: number;
   expires_at: string | null;
   description: string;
-  email?: string;
-  assigned_to_email?: string;
 }
 
 interface GenerateCodesData {
-  coupon_id: number;
+  coupon_id: string;
   quantity: number;
 }
 
@@ -115,18 +95,16 @@ export default function CouponsPage() {
   // Form states
   const [createFormData, setCreateFormData] = useState<CreateCouponData>({
     code: '',
-    coupon_type: 'campaign',
     discount_type: 'percentage',
     discount_value: 0,
     usage_limit: null,
     minimum_order_amount: 0,
     expires_at: null,
     description: '',
-    email: '',
   });
 
   const [generateCodesData, setGenerateCodesData] = useState<GenerateCodesData>({
-    coupon_id: 0,
+    coupon_id: '',
     quantity: 100,
   });
 
@@ -196,16 +174,17 @@ export default function CouponsPage() {
       setCouponsLoading(true);
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupons/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/coupons/`,
         {
-          headers: { 'Authorization': `Token ${token}` },
+          headers: { 'Authorization': `Bearer ${token}` },
         }
       );
 
       if (!response.ok) throw new Error('Failed to fetch coupons');
 
-      const data = await response.json();
-      const couponsList = Array.isArray(data) ? data : data.coupons || [];
+      const json = await response.json();
+      const data = json.data ?? json;
+      const couponsList = Array.isArray(data) ? data : data.coupons || data.results || [];
       setCoupons(couponsList);
     } catch (err) {
       toast.error('Failed to load coupons');
@@ -216,26 +195,8 @@ export default function CouponsPage() {
   };
 
   const fetchCouponCodes = async () => {
-    try {
-      setCodesLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupon-codes/`,
-        {
-          headers: { 'Authorization': `Token ${token}` },
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to fetch codes');
-
-      const data = await response.json();
-      const codesList = Array.isArray(data) ? data : data.results || [];
-      setCodes(codesList);
-    } catch (err) {
-      toast.error('Failed to load coupon codes');
-    } finally {
-      setCodesLoading(false);
-    }
+    // No separate codes endpoint — codes tab reuses coupons list
+    setCodesLoading(false);
   };
 
   const fetchStats = async () => {
@@ -243,16 +204,16 @@ export default function CouponsPage() {
       setStatsLoading(true);
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupons/stats/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/coupons/stats/`,
         {
-          headers: { 'Authorization': `Token ${token}` },
+          headers: { 'Authorization': `Bearer ${token}` },
         }
       );
 
       if (!response.ok) throw new Error('Failed to fetch stats');
 
-      const data = await response.json();
-      setStats(data.stats);
+      const json = await response.json();
+      setStats(json.data ?? json);
     } catch (err) {
       toast.error('Failed to load statistics');
     } finally {
@@ -273,58 +234,37 @@ export default function CouponsPage() {
       return;
     }
 
-    // Validate email for individual coupons
-    if (createFormData.coupon_type === 'individual') {
-      const hasEmail = !!(createFormData.email && String(createFormData.email).trim()) || !!(createFormData.assigned_to_email && String(createFormData.assigned_to_email).trim());
-      if (!hasEmail) {
-        toast.error('Email address is required for individual coupons');
-        return;
-      }
-    }
-
     setIsSubmitting(true);
 
     try {
       const token = localStorage.getItem('token');
-      // Build payload and normalize email fields for backend compatibility
-      const payload: any = { ...createFormData };
-      if (payload.coupon_type !== 'individual') {
-        delete payload.email;
-        delete payload.assigned_to_email;
-      } else {
-        // prefer `email` but also set `assigned_to_email` for compatibility
-        payload.email = payload.email || payload.assigned_to_email || '';
-        payload.assigned_to_email = payload.assigned_to_email || payload.email;
-      }
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupons/generate/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/coupons/create/`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Token ${token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(createFormData),
         }
       );
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to create coupon');
+        throw new Error(error.message || error.error || 'Failed to create coupon');
       }
 
       toast.success('✓ Coupon created successfully');
       setShowCreateModal(false);
       setCreateFormData({
         code: '',
-        coupon_type: 'campaign',
         discount_type: 'percentage',
         discount_value: 0,
         usage_limit: null,
         minimum_order_amount: 0,
         expires_at: null,
         description: '',
-        email: '',
       });
       fetchCoupons();
     } catch (err) {
@@ -337,7 +277,7 @@ export default function CouponsPage() {
   const handleGenerateCodes = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (generateCodesData.coupon_id === 0) {
+    if (!generateCodesData.coupon_id) {
       toast.error('Please select a coupon');
       return;
     }
@@ -352,11 +292,11 @@ export default function CouponsPage() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupon-codes/generate/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/coupons/generate/`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Token ${token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(generateCodesData),
@@ -370,7 +310,7 @@ export default function CouponsPage() {
 
       toast.success(`✓ Generated ${generateCodesData.quantity} coupon codes`);
       setShowGenerateCodesModal(false);
-      setGenerateCodesData({ coupon_id: 0, quantity: 100 });
+      setGenerateCodesData({ coupon_id: '', quantity: 100 });
       fetchCouponCodes();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to generate codes');
@@ -379,16 +319,16 @@ export default function CouponsPage() {
     }
   };
 
-  const handleDeleteCoupon = async (couponId: number) => {
+  const handleDeleteCoupon = async (couponId: string) => {
     if (!confirm('Are you sure you want to delete this coupon?')) return;
 
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupons/${couponId}/delete/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/coupons/${couponId}/`,
         {
           method: 'DELETE',
-          headers: { 'Authorization': `Token ${token}` },
+          headers: { 'Authorization': `Bearer ${token}` },
         }
       );
 
@@ -421,14 +361,22 @@ export default function CouponsPage() {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/coupons/${selectedCoupon.id}/update/`,
+        `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/coupons/${selectedCoupon.id}/`,
         {
           method: 'PATCH',
           headers: {
-            'Authorization': `Token ${token}`,
+            'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(createFormData),
+          body: JSON.stringify({
+            code: createFormData.code,
+            description: createFormData.description,
+            discount_type: createFormData.discount_type,
+            discount_value: createFormData.discount_value,
+            minimum_order_amount: createFormData.minimum_order_amount,
+            usage_limit: createFormData.usage_limit,
+            expires_at: createFormData.expires_at,
+          }),
         }
       );
 
@@ -586,10 +534,8 @@ export default function CouponsPage() {
                         <thead className="bg-slate-800">
                           <tr>
                             <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Code</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Type</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Discount</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Usage</th>
-                            <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Min Order</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Expires</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Status</th>
                             <th className="px-6 py-4 text-left text-sm font-semibold text-slate-300">Actions</th>
@@ -614,33 +560,21 @@ export default function CouponsPage() {
                                 </div>
                               </td>
                               <td className="px-6 py-4">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  coupon.coupon_type === 'campaign' ? 'bg-purple-900 text-purple-200' : 'bg-indigo-900 text-indigo-200'
-                                }`}>
-                                  {coupon.coupon_type}
-                                </span>
-                              </td>
-                              <td className="px-6 py-4">
                                 <div className="text-sm">
                                   {coupon.discount_type === 'percentage' ? (
                                     <span className="text-green-400">{coupon.discount_value}%</span>
                                   ) : (
-                                    <span className="text-green-400">₦{coupon.discount_value.toLocaleString()}</span>
+                                    <span className="text-green-400">₦{parseFloat(String(coupon.discount_value)).toLocaleString()}</span>
                                   )}
                                 </div>
                               </td>
                               <td className="px-6 py-4">
                                 <div className="text-sm">
-                                  {coupon.usage_limit ? (
-                                    <span>{coupon.usage_count} / {coupon.usage_limit}</span>
-                                  ) : (
+                                  {coupon.usage_limit <= 0 ? (
                                     <span className="text-slate-400">Unlimited ({coupon.usage_count})</span>
+                                  ) : (
+                                    <span>{coupon.usage_count} / {coupon.usage_limit}</span>
                                   )}
-                                </div>
-                              </td>
-                              <td className="px-6 py-4">
-                                <div className="text-sm">
-                                  ₦{coupon.minimum_order_amount.toLocaleString()}
                                 </div>
                               </td>
                               <td className="px-6 py-4">
@@ -662,11 +596,10 @@ export default function CouponsPage() {
                                       setSelectedCoupon(coupon);
                                       setCreateFormData({
                                         code: coupon.code,
-                                        coupon_type: coupon.coupon_type as any,
                                         discount_type: coupon.discount_type as any,
-                                        discount_value: coupon.discount_value,
-                                        usage_limit: coupon.usage_limit,
-                                        minimum_order_amount: coupon.minimum_order_amount,
+                                        discount_value: parseFloat(String(coupon.discount_value)),
+                                        usage_limit: coupon.usage_limit > 0 ? coupon.usage_limit : null,
+                                        minimum_order_amount: 0,
                                         expires_at: coupon.expires_at,
                                         description: coupon.description,
                                       });
@@ -831,95 +764,23 @@ export default function CouponsPage() {
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                   </div>
                 ) : stats ? (
-                  <div className="space-y-6">
-                    {/* Discount Coupons Stats */}
-                    <div className="bg-slate-700 p-6 rounded-lg">
-                      <h3 className="text-lg font-semibold text-white mb-4">Discount Coupons</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <motion.div
-                          className="bg-slate-800 p-6 rounded-lg"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <p className="text-slate-400 text-sm mb-2">Total</p>
-                          <p className="text-3xl font-bold text-blue-400">{stats.discount_coupons.total}</p>
-                        </motion.div>
-
-                        <motion.div
-                          className="bg-slate-800 p-6 rounded-lg"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <p className="text-slate-400 text-sm mb-2">Active</p>
-                          <p className="text-3xl font-bold text-green-400">{stats.discount_coupons.active}</p>
-                        </motion.div>
-
-                        <motion.div
-                          className="bg-slate-800 p-6 rounded-lg"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <p className="text-slate-400 text-sm mb-2">Expired</p>
-                          <p className="text-3xl font-bold text-red-400">{stats.discount_coupons.expired}</p>
-                        </motion.div>
-                      </div>
-                    </div>
-
-                    {/* Coupon Codes Stats */}
-                    <div className="bg-slate-700 p-6 rounded-lg">
-                      <h3 className="text-lg font-semibold text-white mb-4">Coupon Codes</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <motion.div
-                          className="bg-slate-800 p-6 rounded-lg"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <p className="text-slate-400 text-sm mb-2">Total</p>
-                          <p className="text-3xl font-bold text-blue-400">{stats.coupon_codes.total}</p>
-                        </motion.div>
-
-                        <motion.div
-                          className="bg-slate-800 p-6 rounded-lg"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <p className="text-slate-400 text-sm mb-2">Used</p>
-                          <p className="text-3xl font-bold text-green-400">{stats.coupon_codes.used}</p>
-                        </motion.div>
-
-                        <motion.div
-                          className="bg-slate-800 p-6 rounded-lg"
-                          whileHover={{ scale: 1.05 }}
-                        >
-                          <p className="text-slate-400 text-sm mb-2">Available</p>
-                          <p className="text-3xl font-bold text-purple-400">{stats.coupon_codes.available}</p>
-                        </motion.div>
-                      </div>
-                    </div>
-
-                    {/* Most Used Coupons */}
-                    {stats.most_used_coupons && stats.most_used_coupons.length > 0 && (
-                      <div className="bg-slate-700 p-6 rounded-lg">
-                        <h3 className="text-lg font-semibold text-white mb-4">Most Used Coupons</h3>
-                        <div className="space-y-3">
-                          {stats.most_used_coupons.map((coupon, index) => (
-                            <motion.div
-                              key={index}
-                              className="bg-slate-800 p-4 rounded-lg flex justify-between items-center"
-                              whileHover={{ scale: 1.02 }}
-                            >
-                              <div className="flex-1">
-                                <p className="font-mono font-semibold text-blue-400">{coupon.code}</p>
-                                <p className="text-xs text-slate-400">
-                                  Discount: {coupon.discount_value} {coupon.discount_value % 1 !== 0 ? '₦' : '%'}
-                                </p>
-                              </div>
-                              <div className="text-right">
-                                <p className="text-sm text-slate-400">Used: {coupon.usage_count}</p>
-                                <p className="text-xs text-slate-500">
-                                  Limit: {coupon.usage_limit === 0 ? 'Unlimited' : coupon.usage_limit}
-                                </p>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
+                      <p className="text-slate-400 text-sm mb-2">Total Coupons</p>
+                      <p className="text-3xl font-bold text-blue-400">{stats.total_coupons}</p>
+                    </motion.div>
+                    <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
+                      <p className="text-slate-400 text-sm mb-2">Active</p>
+                      <p className="text-3xl font-bold text-green-400">{stats.active_coupons}</p>
+                    </motion.div>
+                    <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
+                      <p className="text-slate-400 text-sm mb-2">Total Usage</p>
+                      <p className="text-3xl font-bold text-yellow-400">{stats.total_usage}</p>
+                    </motion.div>
+                    <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
+                      <p className="text-slate-400 text-sm mb-2">Total Discount Given</p>
+                      <p className="text-3xl font-bold text-purple-400">₦{stats.total_discount_given.toLocaleString()}</p>
+                    </motion.div>
                   </div>
                 ) : null}
               </motion.div>
@@ -958,32 +819,6 @@ export default function CouponsPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Type *</label>
-                  <select
-                    value={createFormData.coupon_type}
-                    onChange={(e) => setCreateFormData({...createFormData, coupon_type: e.target.value as any})}
-                    className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white text-sm"
-                    required
-                  >
-                    <option value="campaign">Campaign</option>
-                    <option value="individual">Individual</option>
-                  </select>
-                </div>
-
-                {createFormData.coupon_type === 'individual' && (
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">Email Address *</label>
-                    <input
-                      type="email"
-                      value={createFormData.email || ''}
-                      onChange={(e) => setCreateFormData({ ...createFormData, email: e.target.value })}
-                      className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white text-sm"
-                      required={createFormData.coupon_type === 'individual'}
-                      placeholder="user@example.com"
-                    />
-                  </div>
-                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type *</label>
@@ -1104,20 +939,6 @@ export default function CouponsPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Type</label>
-                  <select
-                    value={createFormData.coupon_type}
-                    onChange={(e) => setCreateFormData({...createFormData, coupon_type: e.target.value as any})}
-                    className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white text-sm"
-                    disabled
-                  >
-                    <option value="campaign">Campaign</option>
-                    <option value="individual">Individual</option>
-                  </select>
-                  <p className="text-xs text-slate-400 mt-1">Type cannot be changed</p>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-slate-300 mb-2">Discount Type</label>
@@ -1125,12 +946,10 @@ export default function CouponsPage() {
                       value={createFormData.discount_type}
                       onChange={(e) => setCreateFormData({...createFormData, discount_type: e.target.value as any})}
                       className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white text-sm"
-                      disabled
                     >
                       <option value="percentage">Percentage</option>
                       <option value="fixed">Fixed</option>
                     </select>
-                    <p className="text-xs text-slate-400 mt-1">Cannot be changed</p>
                   </div>
 
                   <div>
@@ -1235,7 +1054,7 @@ export default function CouponsPage() {
                   <label className="block text-sm font-medium text-slate-300 mb-2">Select Coupon *</label>
                   <select
                     value={generateCodesData.coupon_id}
-                    onChange={(e) => setGenerateCodesData({...generateCodesData, coupon_id: parseInt(e.target.value)})}
+                    onChange={(e) => setGenerateCodesData({...generateCodesData, coupon_id: e.target.value})}
                     className="w-full px-3 py-2 bg-slate-600 border border-slate-500 rounded text-white text-sm"
                     required
                   >

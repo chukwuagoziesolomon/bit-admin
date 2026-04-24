@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
   try {
     // Admin authentication check
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Token ')) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   try {
     // Admin authentication check
     const authHeader = request.headers.get('authorization');
-    if (!authHeader || !authHeader.startsWith('Token ')) {
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

@@ -18,15 +18,12 @@ interface SiteSettings {
  }
 
 interface InterstatePrice {
-   id: number;
-   state_name: string;
-   shipping_price: string;
-   shipping_price_usdt?: string;
-   is_active: boolean;
-   is_free_shipping: boolean;
-   created_at: string;
-   updated_at: string;
- }
+  id: string;
+  state_from: string;
+  state_to: string;
+  price: number;
+  created_at: string;
+}
 
 export default function Settings() {
    const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -36,65 +33,50 @@ export default function Settings() {
    const [saving, setSaving] = useState(false);
    const [error, setError] = useState<string | null>(null);
    const [validationErrors, setValidationErrors] = useState<Record<string, string[]> | null>(null);
-   const [isModalOpen, setIsModalOpen] = useState(false);
-   const [newStateName, setNewStateName] = useState('');
-   const [newStatePrice, setNewStatePrice] = useState('');
-  const [newStateActive, setNewStateActive] = useState(true);
-  const [newStateFreeShipping, setNewStateFreeShipping] = useState(false);
-  const [newStatePriceUSDT, setNewStatePriceUSDT] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newStateFrom, setNewStateFrom] = useState('');
+  const [newStateTo, setNewStateTo] = useState('');
+  const [newStatePrice, setNewStatePrice] = useState('');
 
   const fetchInterstatePrices = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/?per_page=1000`, {
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/shipping/prices/?page_size=1000`, {
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (!response.ok) {
-        throw new Error('Failed to fetch interstate prices');
-      }
-      const result = await response.json();
-      setInterstatePrices(result.prices || []);
+      if (!response.ok) throw new Error('Failed to fetch interstate prices');
+      const json = await response.json();
+      const data = json.data ?? json;
+      setInterstatePrices(data.results ?? []);
     } catch (err) {
       console.error('Error fetching interstate prices:', err);
     }
   };
 
-  const updateInterstatePrice = async (id: number, updates: Partial<InterstatePrice>) => {
+  const updateInterstatePrice = async (id: string, price: number) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/${id}/update/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/shipping/prices/${id}/`, {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
-        },
-        body: JSON.stringify(updates),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ price }),
       });
-      if (!response.ok) {
-        throw new Error('Failed to update price');
-      }
-      const result = await response.json();
-      setInterstatePrices(prev => prev.map(p => p.id === id ? result.price : p));
+      if (!response.ok) throw new Error('Failed to update price');
+      setInterstatePrices(prev => prev.map(p => p.id === id ? { ...p, price } : p));
       toast.success('Price updated successfully');
     } catch (err) {
       toast.error('Failed to update price');
     }
   };
 
-  const removeInterstatePrice = async (id: number) => {
+  const removeInterstatePrice = async (id: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/${id}/delete/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/shipping/prices/${id}/`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
+        headers: { 'Authorization': `Bearer ${token}` },
       });
-      if (!response.ok) {
-        throw new Error('Failed to delete price');
-      }
+      if (!response.ok && response.status !== 204) throw new Error('Failed to delete price');
       setInterstatePrices(prev => prev.filter(p => p.id !== id));
       toast.success('Shipping price deleted');
     } catch (err) {
@@ -103,57 +85,41 @@ export default function Settings() {
   };
 
   const openAddStateModal = () => {
-    setNewStateName('');
+    setNewStateFrom('');
+    setNewStateTo('');
     setNewStatePrice('');
-    setNewStateActive(true);
-    setNewStateFreeShipping(false);
     setIsModalOpen(true);
   };
 
   const handleAddState = async () => {
-    const stateName = newStateName.trim();
-    const price = parseFloat(newStatePrice);
-    const priceUSDT = parseFloat(newStatePriceUSDT);
+    const stateFrom = newStateFrom.trim();
+    const stateTo = newStateTo.trim();
+    const price = Number(newStatePrice);
 
-    if (!stateName) {
-      toast.error('Please enter a state name');
+    if (!stateFrom || !stateTo) {
+      toast.error('Please enter both from and to state');
       return;
     }
-    if (isNaN(price) || price < 0) {
-      toast.error('Please enter a valid NGN price (must be 0 or greater)');
-      return;
-    }
-    if (isNaN(priceUSDT) || priceUSDT < 0) {
-      toast.error('Please enter a valid USDT price (must be 0 or greater)');
+    if (!newStatePrice || isNaN(price) || price < 0) {
+      toast.error('Please enter a valid price');
       return;
     }
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/shipping/interstate-prices/create/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/shipping/prices/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
-        },
-        body: JSON.stringify({
-          state_name: stateName,
-          shipping_price: price.toString(),
-          shipping_price_usdt: priceUSDT.toString(),
-          is_active: newStateActive,
-          is_free_shipping: newStateFreeShipping,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ state_from: stateFrom, state_to: stateTo, price }),
       });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create price');
-      }
-      const result = await response.json();
-      setInterstatePrices(prev => [...prev, result.price]);
+      const json = await response.json();
+      if (!response.ok) throw new Error(json.error || 'Failed to create price');
+      const created: InterstatePrice = json.data ?? json;
+      setInterstatePrices(prev => [...prev, created]);
       setIsModalOpen(false);
-      toast.success(`Added ${stateName} with price ₦${price.toLocaleString()} and $${priceUSDT} USDT`);
+      toast.success(`Added route ${stateFrom} → ${stateTo}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to add state');
+      toast.error(err instanceof Error ? err.message : 'Failed to add route');
     }
   };
 
@@ -162,15 +128,16 @@ export default function Settings() {
       try {
         const token = localStorage.getItem('token');
         // Fetch settings
-        const settingsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/site/settings/`, {
+        const settingsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/site-settings/`, {
           headers: {
-            'Authorization': `Token ${token}`,
+            'Authorization': `Bearer ${token}`,
           },
         });
         if (!settingsResponse.ok) {
           throw new Error('Failed to fetch settings');
         }
-        const settingsResult: SiteSettings = await settingsResponse.json();
+        const settingsJson = await settingsResponse.json();
+        const settingsResult: SiteSettings = settingsJson.data ?? settingsJson;
         setSettings(settingsResult);
 
         // Fetch interstate prices
@@ -191,11 +158,11 @@ export default function Settings() {
     setValidationErrors(null);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/site/settings/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/site-settings/`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           tax_percentage: settings.tax_percentage,
@@ -250,6 +217,7 @@ export default function Settings() {
   }
 
   return (
+    <>
     <div className="flex h-screen bg-slate-900">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       <main className="flex-1 p-4 md:p-8 bg-slate-800 overflow-auto">
@@ -339,52 +307,26 @@ export default function Settings() {
                 <div className="space-y-4 mb-4">
                   {interstatePrices.map((price) => (
                     <div key={price.id} className="flex items-center gap-4 p-3 bg-slate-700 rounded">
-                      <span className="text-slate-300 w-32 font-medium">{price.state_name}:</span>
+                      <span className="text-slate-300 font-medium text-sm min-w-0 flex-shrink-0">
+                        {price.state_from} → {price.state_to}
+                      </span>
                       <div className="flex-1 flex items-center gap-2">
                         <span className="text-slate-400">₦</span>
                         <input
                           type="number"
-                          value={price.shipping_price}
-                          onChange={(e) => updateInterstatePrice(price.id, { shipping_price: e.target.value })}
+                          defaultValue={price.price}
+                          onBlur={(e) => {
+                            const val = Number(e.target.value);
+                            if (!isNaN(val) && val !== price.price) updateInterstatePrice(price.id, val);
+                          }}
                           className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
                           min="0"
-                          step="0.01"
+                          step="1"
                         />
-                        <span className="text-slate-400 ml-4">USDT</span>
-                        <input
-                          type="number"
-                          value={price.shipping_price_usdt || ''}
-                          onChange={(e) => updateInterstatePrice(price.id, { shipping_price_usdt: e.target.value })}
-                          className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-1 text-sm text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={price.is_active}
-                            onChange={(e) => updateInterstatePrice(price.id, { is_active: e.target.checked })}
-                            className="rounded"
-                          />
-                          Active
-                        </label>
-                        <label className="flex items-center gap-1 text-sm text-slate-300">
-                          <input
-                            type="checkbox"
-                            checked={price.is_free_shipping}
-                            onChange={(e) => updateInterstatePrice(price.id, { is_free_shipping: e.target.checked })}
-                            className="rounded"
-                          />
-                          Free
-                        </label>
                       </div>
                       <button
                         onClick={() => {
-                          if (window.confirm('Are you sure you want to delete this shipping price?')) {
-                            removeInterstatePrice(price.id);
-                          }
+                          if (window.confirm('Delete this shipping route?')) removeInterstatePrice(price.id);
                         }}
                         className="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded text-sm transition-colors"
                       >
@@ -436,70 +378,42 @@ export default function Settings() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
           >
-            <h3 className="text-lg font-semibold text-white mb-4">Add New State</h3>
+            <h3 className="text-lg font-semibold text-white mb-4">Add Shipping Route</h3>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  State Name
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">From State *</label>
                 <input
                   type="text"
-                  value={newStateName}
-                  onChange={(e) => setNewStateName(e.target.value)}
+                  value={newStateFrom}
+                  onChange={(e) => setNewStateFrom(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
-                  placeholder="Enter state name (e.g., Rivers)"
+                  placeholder="e.g., Lagos"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Shipment Price (₦)
-                </label>
+                <label className="block text-sm font-medium text-slate-300 mb-2">To State *</label>
+                <input
+                  type="text"
+                  value={newStateTo}
+                  onChange={(e) => setNewStateTo(e.target.value)}
+                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
+                  placeholder="e.g., Abuja"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Price (₦) *</label>
                 <input
                   type="number"
                   value={newStatePrice}
                   onChange={(e) => setNewStatePrice(e.target.value)}
                   className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
-                  placeholder="Enter price (e.g., 10000)"
+                  placeholder="e.g., 5000"
                   min="0"
-                  step="0.01"
+                  step="1"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Shipment Price (USDT)
-                </label>
-                <input
-                  type="number"
-                  value={newStatePriceUSDT}
-                  onChange={(e) => setNewStatePriceUSDT(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-slate-400"
-                  placeholder="Enter price in USDT (e.g., 1.5)"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 text-sm text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={newStateActive}
-                    onChange={(e) => setNewStateActive(e.target.checked)}
-                    className="rounded"
-                  />
-                  Active
-                </label>
-                <label className="flex items-center gap-2 text-sm text-slate-300">
-                  <input
-                    type="checkbox"
-                    checked={newStateFreeShipping}
-                    onChange={(e) => setNewStateFreeShipping(e.target.checked)}
-                    className="rounded"
-                  />
-                  Free Shipping
-                </label>
               </div>
             </div>
 
@@ -545,5 +459,6 @@ export default function Settings() {
         }}
       />
     </div>
+    </>
   );
 }

@@ -2,48 +2,27 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
-import { CreditCard, DollarSign, TrendingUp, Filter, Search, Calendar, Copy } from "lucide-react";
+import { CreditCard, DollarSign, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface Payment {
-  id: number;
   payment_id: string;
-  order: number;
+  order_id: string;
+  amount: number;
+  currency: string;
   payment_method: string;
-  payment_method_display: string;
-  amount_usd: string;
-  amount_usdt: string;
-  usdt_network: string | null;
-  network_display: string | null;
-  wallet_address: string | null;
-  transaction_hash: string | null;
+  transaction_reference: string | null;
   status: string;
-  status_display: string;
-  is_crypto_payment: boolean;
-  is_expired: boolean;
-  time_remaining: string | null;
-  expires_at: string | null;
-  confirmed_at: string | null;
+  verified_at: string | null;
   created_at: string;
-  updated_at: string;
-}
-
-interface Statistics {
-  total: number;
-  paid: number;
-  pending: number;
-  failed: number;
-  expired: number;
 }
 
 interface ApiResponse {
   count: number;
-  next: string | null;
-  previous: string | null;
-  results: {
-    payments: Payment[];
-    statistics: Statistics;
-  };
+  page: number;
+  pageSize: number;
+  pages: number;
+  results: Payment[];
 }
 
 export default function PaymentsPage() {
@@ -53,7 +32,6 @@ export default function PaymentsPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
-  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
 
   const fetchPayments = useCallback(async () => {
     setLoading(true);
@@ -62,13 +40,14 @@ export default function PaymentsPage() {
       const token = localStorage.getItem("token");
       const params = new URLSearchParams({
         page: currentPage.toString(),
-        per_page: perPage.toString(),
+        page_size: perPage.toString(),
       });
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/payments/tracking/?${params}`, {
-        headers: { Authorization: `Token ${token}` },
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/payments/tracking/?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Failed to fetch payments");
-      const result = await res.json();
+      const json = await res.json();
+      const result = json.data ?? json;
       setData(result);
     } catch (e: any) {
       setError(e.message || "Unknown error");
@@ -85,19 +64,6 @@ export default function PaymentsPage() {
     <div className="flex h-screen bg-slate-900">
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(!sidebarOpen)} />
       <main className="flex-1 p-4 md:p-8 bg-slate-800 overflow-auto">
-        {copiedAddress && (
-          <div className="fixed right-6 top-6 z-50">
-            <div className="bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-3">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293a1 1 0 10-1.414 1.414l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z" clipRule="evenodd" />
-              </svg>
-              <div className="text-sm">
-                <div>Wallet address copied</div>
-                <div className="text-xs font-mono truncate max-w-xs">{copiedAddress}</div>
-              </div>
-            </div>
-          </div>
-        )}
         <button
           onClick={() => setSidebarOpen(true)}
           className="md:hidden fixed top-4 left-4 z-30 p-2 bg-slate-700 rounded-lg text-white"
@@ -128,50 +94,41 @@ export default function PaymentsPage() {
           )}
           {data && (
             <>
-              {/* Statistics Cards */}
+              {/* Summary */}
               <motion.div
-                className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8"
+                className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"
                 initial="hidden"
                 animate="visible"
-                variants={{
-                  visible: { transition: { staggerChildren: 0.1 } },
-                }}
+                variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
               >
                 <motion.div className="bg-slate-700 p-4 rounded-lg text-center" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-                  <div className="flex items-center justify-center mb-2">
-                    <CreditCard className="text-blue-400" size={20} />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white">Total Payments</h3>
-                  <p className="text-2xl font-bold text-blue-400">{data.results.statistics.total || 0}</p>
+                  <CreditCard className="mx-auto mb-2 text-blue-400" size={20} />
+                  <h3 className="text-sm font-semibold text-white">Total</h3>
+                  <p className="text-2xl font-bold text-blue-400">{data.count}</p>
                 </motion.div>
                 <motion.div className="bg-slate-700 p-4 rounded-lg text-center" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-                  <div className="flex items-center justify-center mb-2">
-                    <DollarSign className="text-green-400" size={20} />
-                  </div>
-                  <h3 className="text-sm font-semibold text-white">Paid</h3>
-                  <p className="text-xl font-bold text-green-400">{data.results.statistics.paid || 0}</p>
+                  <DollarSign className="mx-auto mb-2 text-green-400" size={20} />
+                  <h3 className="text-sm font-semibold text-white">Completed</h3>
+                  <p className="text-2xl font-bold text-green-400">
+                    {data.results.filter(p => p.status === 'completed').length}
+                  </p>
                 </motion.div>
                 <motion.div className="bg-slate-700 p-4 rounded-lg text-center" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-                  <div className="flex items-center justify-center mb-2">
-                    <TrendingUp className="text-orange-400" size={20} />
-                  </div>
+                  <TrendingUp className="mx-auto mb-2 text-orange-400" size={20} />
                   <h3 className="text-sm font-semibold text-white">Pending</h3>
-                  <p className="text-2xl font-bold text-orange-400">{data.results.statistics.pending || 0}</p>
+                  <p className="text-2xl font-bold text-orange-400">
+                    {data.results.filter(p => p.status === 'pending').length}
+                  </p>
                 </motion.div>
-                <motion.div className="bg-slate-700 p-4 rounded-lg text-center col-span-2" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
-                  <h3 className="text-sm font-semibold text-white mb-2">Status Breakdown</h3>
-                  <div className="flex flex-wrap gap-2 justify-center">
-                    <span className="text-xs bg-slate-600 px-2 py-1 rounded">Paid: {data.results.statistics.paid}</span>
-                    <span className="text-xs bg-slate-600 px-2 py-1 rounded">Pending: {data.results.statistics.pending}</span>
-                    <span className="text-xs bg-slate-600 px-2 py-1 rounded">Failed: {data.results.statistics.failed}</span>
-                    <span className="text-xs bg-slate-600 px-2 py-1 rounded">Expired: {data.results.statistics.expired}</span>
-                  </div>
+                <motion.div className="bg-slate-700 p-4 rounded-lg text-center" variants={{ hidden: { opacity: 0, y: 20 }, visible: { opacity: 1, y: 0 } }}>
+                  <h3 className="text-sm font-semibold text-white mb-1">Pages</h3>
+                  <p className="text-2xl font-bold text-slate-300">{data.page} / {data.pages}</p>
                 </motion.div>
               </motion.div>
 
               {/* Payments Table */}
               <motion.div
-                className="bg-slate-700 rounded-lg shadow-lg overflow-hidden"
+                className="bg-slate-700 rounded-lg shadow-lg overflow-hidden mb-6"
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4, duration: 0.6 }}
@@ -180,56 +137,56 @@ export default function PaymentsPage() {
                   <table className="w-full">
                     <thead className="bg-slate-600">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">ID</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Order</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">User</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Payment ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Order ID</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Amount</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Method</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Ref</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Verified</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-300 uppercase tracking-wider">Date</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-600">
-                      {data.results.payments.length === 0 ? (
+                      {data.results.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="text-center text-slate-400 py-8">No payments found</td>
+                          <td colSpan={8} className="text-center text-slate-400 py-8">No payments found</td>
                         </tr>
                       ) : (
-                        data.results.payments.map((p, idx) => (
-                          <tr key={p.id} className="hover:bg-slate-600 transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap text-white">{p.payment_id}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-white">{p.order}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-white">N/A</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-white">${p.amount_usd} {p.amount_usdt !== "0.00" && ` / ${p.amount_usdt} USDT`}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-white">{p.payment_method_display}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-white">
-                              {p.wallet_address ? (
-                                <div className="flex items-center gap-2">
-                                  <div className="text-slate-300 truncate max-w-[220px]" title={p.wallet_address}>
-                                    {p.wallet_address.length > 40 ? `${p.wallet_address.substring(0,12)}...${p.wallet_address.slice(-12)}` : p.wallet_address}
-                                  </div>
-                                  <button
-                                    onClick={async () => {
-                                      try {
-                                        await navigator.clipboard.writeText(p.wallet_address || '');
-                                        setCopiedAddress(p.wallet_address || '');
-                                        window.setTimeout(() => setCopiedAddress(null), 3000);
-                                      } catch (e) {
-                                        // ignore
-                                      }
-                                    }}
-                                    className="p-1 rounded hover:bg-slate-600"
-                                    title="Copy wallet address"
-                                  >
-                                    <Copy size={16} className="text-slate-300" />
-                                  </button>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-slate-400">N/A</span>
-                              )}
+                        data.results.map((p) => (
+                          <tr key={p.payment_id} className="hover:bg-slate-600 transition-colors">
+                            <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-300 font-mono">{p.payment_id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-xs text-slate-300 font-mono">{p.order_id}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-white font-medium">
+                              {p.currency} {p.amount.toLocaleString()}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-white">{p.status_display}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-white">{new Date(p.created_at).toLocaleString()}</td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-700 text-white capitalize">
+                                {p.payment_method}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-xs text-slate-400 font-mono max-w-[180px] truncate" title={p.transaction_reference ?? ''}>
+                              {p.transaction_reference ?? '—'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`px-2 py-1 text-xs font-medium rounded-full text-white ${
+                                p.status === 'completed' ? 'bg-green-600' :
+                                p.status === 'pending' ? 'bg-yellow-600' :
+                                p.status === 'failed' ? 'bg-red-600' :
+                                'bg-slate-500'
+                              }`}>
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                              {p.verified_at ? new Date(p.verified_at).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">
+                              {new Date(p.created_at).toLocaleDateString('en-GB', {
+                                day: '2-digit', month: 'short', year: 'numeric',
+                                hour: '2-digit', minute: '2-digit',
+                              })}
+                            </td>
                           </tr>
                         ))
                       )}
@@ -237,6 +194,28 @@ export default function PaymentsPage() {
                   </table>
                 </div>
               </motion.div>
+
+              {/* Pagination */}
+              {data.pages > 1 && (
+                <div className="flex items-center justify-between bg-slate-700 p-4 rounded-lg">
+                  <p className="text-sm text-slate-400">
+                    Showing {((data.page - 1) * data.pageSize) + 1}–{Math.min(data.page * data.pageSize, data.count)} of {data.count}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={data.page <= 1}
+                      className="px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg text-sm"
+                    >Previous</button>
+                    <span className="px-3 py-2 text-white text-sm">{data.page} / {data.pages}</span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(data.pages, p + 1))}
+                      disabled={data.page >= data.pages}
+                      className="px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg text-sm"
+                    >Next</button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

@@ -28,18 +28,14 @@ interface ChartDataItem {
    weekly: WeeklyChartData[];
  }
 
+ interface SalesChartDataPoint {
+   date: string;
+   revenue: number;
+ }
+
  interface SalesChartResponse {
    period: string;
-   labels: string[];
-   data: number[];
-   summary: {
-     total_sales: number;
-     average_daily_sales: number;
-     peak_sales: number;
-     lowest_sales: number;
-   };
-   start_date: string;
-   end_date: string;
+   data: SalesChartDataPoint[];
  }
 
 interface ActivityItem {
@@ -166,9 +162,9 @@ export default function Dashboard() {
   const fetchSalesChart = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/dashboard/sales-chart/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/dashboard/sales-chart/`, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -176,19 +172,23 @@ export default function Dashboard() {
         throw new Error('Failed to fetch sales chart data');
       }
 
-      const result: SalesChartResponse = await response.json();
-      
-      // Transform API response to chart data format
-      const transformedData: ChartDataItem[] = result.labels.map((label, index) => ({
-        date: label,
-        revenue: result.data[index] || 0,
+      const json: any = await response.json();
+      const result: SalesChartResponse = json.data ?? json;
+
+      const points: SalesChartDataPoint[] = Array.isArray(result.data) ? result.data : [];
+
+      const transformedData: ChartDataItem[] = points.map((item) => ({
+        date: item.date,
+        revenue: item.revenue || 0,
         orders: 0,
-        formatted_date: label,
+        formatted_date: item.date,
       }));
-      
+
+      const computedTotalSales = points.reduce((sum, item) => sum + (item.revenue || 0), 0);
+
       setChartData(transformedData);
-      setTotalSales(result.summary.total_sales || 0);
-      setTotalOrders(0); // Not provided in new API
+      setTotalSales(computedTotalSales);
+      setTotalOrders(0);
     } catch (err) {
       setChartError(err instanceof Error ? err.message : 'Failed to load chart data');
       setTotalSales(0); // Ensure totalSales is always a number
@@ -201,9 +201,9 @@ export default function Dashboard() {
   const fetchRecentActivity = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/dashboard/recent-activity/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/dashboard/recent-activity/`, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -211,7 +211,8 @@ export default function Dashboard() {
         throw new Error('Failed to fetch recent activity');
       }
 
-      const result: RecentActivityResponse = await response.json();
+      const json: any = await response.json();
+      const result: RecentActivityResponse = json.data ?? json;
       setActivities(result.activities || []);
     } catch (err) {
       setActivitiesError(err instanceof Error ? err.message : 'Failed to load recent activity');
@@ -224,9 +225,9 @@ export default function Dashboard() {
   const fetchDashboardStats = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/dashboard/stats/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/dashboard/stats/`, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
 
@@ -234,7 +235,8 @@ export default function Dashboard() {
         throw new Error('Failed to fetch dashboard statistics');
       }
 
-      const result: DashboardStatsResponse = await response.json();
+      const json: any = await response.json();
+      const result: DashboardStatsResponse = json.data ?? json;
       setDashboardStats(result);
     } catch (err) {
       setStatsError(err instanceof Error ? err.message : 'Failed to load dashboard stats');

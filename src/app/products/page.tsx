@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Menu, Plus, Upload, X, Edit, Eye, Package, AlertTriangle, Trash2 } from 'lucide-react';
+import { Menu, Plus, Upload, X, Edit, Eye, Package, Trash2 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import Image from 'next/image';
 
 interface ProductFormData {
     name: string;
-    slug: string;
-    category_input: string;
+    category_id: string;
+    brand_id: string;
     description: string;
     short_description: string;
     price: string;
@@ -18,79 +18,115 @@ interface ProductFormData {
     stock_quantity: string;
     product_condition: string;
     sku: string;
-    brand: string;
-    brand_input: string;
     model: string;
     colors: string[];
     storage_options: string[];
     ram_options: string[];
-    specifications: string;
-    features: string[];
+    display_specs: string;
+    chip_specs: string;
     is_featured: boolean;
     is_active: boolean;
-    is_coupon: boolean;
-    coupon_value: string;
+    is_coupon_product: boolean;
+}
+
+interface CategoryOption {
+    id: string;
+    name: string;
+    display_name: string;
+}
+
+interface BrandOption {
+    id: string;
+    name: string;
+    display_name: string;
 }
 
 
 export default function Products() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [mainImage, setMainImage] = useState<File | null>(null);
-  const [additionalImages, setAdditionalImages] = useState<File[]>([]);
-  const [editingProductId, setEditingProductId] = useState<number | null>(null);
-  const [existingMainImageUrl, setExistingMainImageUrl] = useState<string | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('create');
   const [products, setProducts] = useState<any[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
-  const [stockUpdating, setStockUpdating] = useState<number | null>(null);
-  const [formData, setFormData] = useState<ProductFormData>({
+  const [categories, setCategories] = useState<CategoryOption[]>([]);
+  const [brands, setBrands] = useState<BrandOption[]>([]);
+  const emptyForm: ProductFormData = {
     name: '',
-    slug: '',
-    category_input: '',
+    category_id: '',
+    brand_id: '',
     description: '',
     short_description: '',
     price: '',
     price_usdt: '',
     discount_percentage: '',
     stock_quantity: '',
-    product_condition: '',
+    product_condition: 'new',
     sku: '',
-    brand: '',
-    brand_input: '',
     model: '',
     colors: [],
     storage_options: [],
     ram_options: [],
-    specifications: '',
-    features: [],
+    display_specs: '',
+    chip_specs: '',
     is_featured: false,
     is_active: true,
-    is_coupon: false,
-    coupon_value: '',
-  });
+    is_coupon_product: false,
+  };
+  const [formData, setFormData] = useState<ProductFormData>(emptyForm);
 
 
   useEffect(() => {
+    fetchCategories();
+    fetchBrands();
     if (activeTab === 'list') {
       fetchProducts();
     }
   }, [activeTab]);
 
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/categories/`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const data: CategoryOption[] = json.data ?? json.categories ?? [];
+      setCategories(data);
+    } catch { /* non-blocking */ }
+  };
+
+  const fetchBrands = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/brands/`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const json = await res.json();
+      const data: BrandOption[] = json.data ?? json.results ?? [];
+      setBrands(data);
+    } catch { /* non-blocking */ }
+  };
+
   const fetchProducts = async () => {
     setProductsLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/products/`, {
         headers: {
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
       });
       if (!response.ok) {
         throw new Error('Failed to fetch products');
       }
-      const result = await response.json();
-      setProducts(result.results || []);
+      const json = await response.json();
+      // Backend returns { success, data: { results: [...], total, page, pageSize } }
+      const result = json.data ?? json;
+      setProducts(result.results || result.products || []);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to fetch products');
     } finally {
@@ -98,33 +134,24 @@ export default function Products() {
     }
   };
 
-  const toggleStockStatus = async (productId: number, action: 'out_of_stock' | 'restore', quantity?: number) => {
-    setStockUpdating(productId);
+  const deleteProduct = async (productId: string) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
     try {
+      setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/${productId}/toggle-stock/`, {
-        method: 'PATCH',
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/products/${productId}/delete/`, {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`,
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          action,
-          ...(quantity && { quantity })
-        }),
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to update stock status');
-      }
-
-      const result = await response.json();
-      toast.success(result.message || 'Stock status updated successfully');
+      if (!response.ok) throw new Error('Failed to delete product');
+      toast.success('Product deleted successfully');
       fetchProducts();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update stock status');
+      toast.error(err instanceof Error ? err.message : 'Failed to delete product');
     } finally {
-      setStockUpdating(null);
+      setLoading(false);
     }
   };
 
@@ -138,7 +165,7 @@ export default function Products() {
     }));
   };
 
-  const handleArrayInput = (field: 'colors' | 'storage_options' | 'ram_options' | 'features', value: string) => {
+  const handleArrayInput = (field: 'colors' | 'storage_options' | 'ram_options', value: string) => {
     if (value.trim() && !formData[field].includes(value.trim())) {
       setFormData(prev => ({
         ...prev,
@@ -147,96 +174,64 @@ export default function Products() {
     }
   };
 
-  const removeArrayItem = (field: 'colors' | 'storage_options' | 'ram_options' | 'features', index: number) => {
+  const removeArrayItem = (field: 'colors' | 'storage_options' | 'ram_options', index: number) => {
     setFormData(prev => ({
       ...prev,
       [field]: prev[field].filter((_, i) => i !== index),
     }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isMain: boolean = false) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
+    setImageFiles(prev => [...prev, ...Array.from(files)].slice(0, 6));
+  };
 
-    if (isMain) {
-      setMainImage(files[0]);
-      setExistingMainImageUrl(null);
-    } else {
-      const newImages = Array.from(files);
-      setAdditionalImages(prev => [...prev, ...newImages].slice(0, 5));
-    }
+  const removeImageFile = (index: number) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const editProduct = (product: any) => {
-    // populate form for editing
     setActiveTab('create');
     setEditingProductId(product.id);
     setFormData({
       name: product.name || '',
-      slug: product.slug || '',
-      category_input: product.category?.name || product.category?.display_name || '',
+      category_id: product.category_id || '',
+      brand_id: product.brand_id || '',
       description: product.description || '',
       short_description: product.short_description || '',
       price: String(product.price || ''),
       price_usdt: String(product.price_usdt || ''),
       discount_percentage: String(product.discount_percentage || ''),
       stock_quantity: String(product.stock_quantity || ''),
-      product_condition: product.product_condition || '',
+      product_condition: product.product_condition || 'new',
       sku: product.sku || '',
-      brand: product.brand || '',
-      brand_input: product.brand_input || '',
       model: product.model || '',
-      colors: product.colors || [],
-      storage_options: product.storage_options || [],
-      ram_options: product.ram_options || [],
-      specifications: product.specifications || '',
-      features: product.features || [],
+      colors: Array.isArray(product.colors)
+        ? product.colors
+        : (product.colors ? tryParseJson(product.colors) : []),
+      storage_options: Array.isArray(product.storage_options)
+        ? product.storage_options
+        : (product.storage_options ? tryParseJson(product.storage_options) : []),
+      ram_options: Array.isArray(product.ram_options)
+        ? product.ram_options
+        : (product.ram_options ? tryParseJson(product.ram_options) : []),
+      display_specs: product.display_specs || '',
+      chip_specs: product.chip_specs || '',
       is_featured: !!product.is_featured,
-      is_active: !!product.is_active,
-      is_coupon: !!product.is_coupon,
-      coupon_value: String(product.coupon_value || ''),
+      is_active: product.is_active !== false,
+      is_coupon_product: !!product.is_coupon_product,
     });
-
-    setMainImage(null);
-    setAdditionalImages([]);
-    setExistingMainImageUrl(product.main_image || null);
+    setImageFiles([]);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const deleteProduct = async (productId: number) => {
-    if (!window.confirm('Are you sure you want to delete this product?')) return;
-    try {
-      setLoading(true);
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products/${productId}/`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-      });
-      if (!response.ok) throw new Error('Failed to delete product');
-      toast.success('Product deleted successfully');
-      fetchProducts();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete product');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const removeImage = (index: number, isMain: boolean = false) => {
-    if (isMain) {
-      setMainImage(null);
-    } else {
-      setAdditionalImages(prev => prev.filter((_, i) => i !== index));
-    }
+  const tryParseJson = (val: string): string[] => {
+    try { return JSON.parse(val); } catch { return []; }
   };
 
   const generateSlug = () => {
-    const slug = formData.name.toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/(^-|-$)/g, '');
-    setFormData(prev => ({ ...prev, slug }));
+    // slug is auto-generated on the backend, no-op kept for compat
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -245,150 +240,87 @@ export default function Products() {
 
     try {
       const token = localStorage.getItem('token');
-
-      let body: FormData | string;
-      const headers: Record<string, string> = {
-        'Authorization': `Token ${token}`,
-      };
-
-      // Always use FormData to support file uploads
-      const formDataToSend = new FormData();
-
-      if (formData.is_coupon) {
-        // Send FormData for coupons (so images are included)
-        formDataToSend.append('name', formData.name);
-        formDataToSend.append('slug', formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
-        formDataToSend.append('price', formData.price);
-        formDataToSend.append('coupon_value', formData.coupon_value);
-        formDataToSend.append('is_coupon', 'true');
-        formDataToSend.append('category_input', formData.category_input || 'coupons');
-        formDataToSend.append('brand_input', formData.brand_input || formData.brand || 'bitgadgetz');
-        formDataToSend.append('stock_quantity', '999999');
-        formDataToSend.append('product_condition', 'new');
-        formDataToSend.append('sku', formData.sku || `COUPON-${Date.now()}`);
-        
-        if (formData.description) formDataToSend.append('description', formData.description);
-        if (formData.short_description) formDataToSend.append('short_description', formData.short_description);
-        if (formData.discount_percentage) formDataToSend.append('discount_percentage', formData.discount_percentage);
-        if (formData.price_usdt) formDataToSend.append('price_usdt', formData.price_usdt);
-        
-        formDataToSend.append('features', JSON.stringify(formData.features || []));
-        formDataToSend.append('colors', JSON.stringify(formData.colors || []));
-        formDataToSend.append('storage_options', JSON.stringify(formData.storage_options || []));
-        formDataToSend.append('is_active', String(formData.is_active));
-        formDataToSend.append('is_featured', String(formData.is_featured));
-
-        // Always include the main image for coupons
-        if (mainImage) {
-          formDataToSend.append('main_image', mainImage);
-        } else if (existingMainImageUrl) {
-          // If editing and no new file selected, send existing image URL
-          formDataToSend.append('main_image_url', existingMainImageUrl);
-        }
-        if (additionalImages && additionalImages.length > 0) {
-          additionalImages.forEach((file, idx) => {
-            formDataToSend.append('additional_images', file);
-          });
-        }
-
-        body = formDataToSend;
-      } else {
-        // Send FormData for regular products
-        const categoryName = formData.category_input;
-
-        formDataToSend.append('name', formData.name);
-        formDataToSend.append('slug', formData.slug || formData.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''));
-        formDataToSend.append('category_input', categoryName);
-        formDataToSend.append('brand_input', formData.brand);
-        formDataToSend.append('description', formData.description);
-        formDataToSend.append('short_description', formData.short_description);
-        formDataToSend.append('price', formData.price);
-        if (formData.price_usdt) formDataToSend.append('price_usdt', formData.price_usdt);
-        formDataToSend.append('discount_percentage', formData.discount_percentage || '0');
-        formDataToSend.append('stock_quantity', formData.stock_quantity || '0');
-        formDataToSend.append('product_condition', formData.product_condition || '');
-        formDataToSend.append('sku', formData.sku || '');
-        formDataToSend.append('model', formData.model || '');
-        formDataToSend.append('colors', JSON.stringify(formData.colors || []));
-        formDataToSend.append('storage_options', JSON.stringify(formData.storage_options || []));
-        formDataToSend.append('specifications', formData.specifications || '');
-        formDataToSend.append('features', JSON.stringify(formData.features || []));
-        formDataToSend.append('is_active', String(formData.is_active));
-        formDataToSend.append('is_featured', String(formData.is_featured));
-
-        if (mainImage) {
-          formDataToSend.append('main_image', mainImage);
-        }
-        else if (existingMainImageUrl) {
-          formDataToSend.append('main_image_url', existingMainImageUrl);
-        }
-        if (additionalImages && additionalImages.length > 0) {
-          additionalImages.forEach((file, idx) => {
-            formDataToSend.append('additional_images', file);
-          });
-        }
-
-        body = formDataToSend;
-      }
-
-      // choose endpoint and method depending on whether we're editing
-      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/api/admin/products`;
-      const endpoint = editingProductId ? `${baseUrl}/${editingProductId}/update/` : `${baseUrl}/`;
-      const method = editingProductId ? 'PATCH' : 'POST';
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Authorization': `Token ${token}`,
-        },
-        body,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        const errorMessages = Object.entries(result)
-          .map(([field, errors]) => `${field}: ${Array.isArray(errors) ? errors.join(', ') : errors}`)
-          .join('\n');
-        throw new Error(errorMessages);
-      }
+      const baseUrl = `${process.env.NEXT_PUBLIC_API_BASE_URL}/admin/products`;
 
       if (editingProductId) {
-        toast.success(formData.is_coupon ? 'Coupon updated successfully!' : 'Product updated successfully!');
+        // Update: send JSON (images not updated via this route)
+        const body: Record<string, unknown> = {
+          name: formData.name,
+          category_id: formData.category_id,
+          brand_id: formData.brand_id || undefined,
+          description: formData.description,
+          short_description: formData.short_description,
+          price: formData.price,
+          price_usdt: formData.price_usdt || undefined,
+          discount_percentage: formData.discount_percentage || '0',
+          stock_quantity: formData.stock_quantity || '0',
+          product_condition: formData.product_condition,
+          sku: formData.sku,
+          model: formData.model || undefined,
+          colors: formData.colors,
+          storage_options: formData.storage_options,
+          ram_options: formData.ram_options,
+          display_specs: formData.display_specs || undefined,
+          chip_specs: formData.chip_specs || undefined,
+          is_active: formData.is_active,
+          is_featured: formData.is_featured,
+          is_coupon_product: formData.is_coupon_product,
+        };
+
+        const response = await fetch(`${baseUrl}/${editingProductId}/update/`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || result.message || 'Failed to update product');
+        toast.success('Product updated successfully!');
       } else {
-        toast.success(formData.is_coupon ? 'Coupon created successfully!' : 'Product created successfully!');
+        // Create: send multipart/form-data with images
+        const fd = new FormData();
+        fd.append('name', formData.name);
+        fd.append('category_id', formData.category_id);
+        fd.append('price', formData.price);
+        fd.append('sku', formData.sku);
+        if (formData.brand_id) fd.append('brand_id', formData.brand_id);
+        if (formData.description) fd.append('description', formData.description);
+        if (formData.short_description) fd.append('short_description', formData.short_description);
+        if (formData.price_usdt) fd.append('price_usdt', formData.price_usdt);
+        fd.append('discount_percentage', formData.discount_percentage || '0');
+        fd.append('stock_quantity', formData.stock_quantity || '0');
+        fd.append('product_condition', formData.product_condition || 'new');
+        if (formData.model) fd.append('model', formData.model);
+        if (formData.colors.length) fd.append('colors', JSON.stringify(formData.colors));
+        if (formData.storage_options.length) fd.append('storage_options', JSON.stringify(formData.storage_options));
+        if (formData.ram_options.length) fd.append('ram_options', JSON.stringify(formData.ram_options));
+        if (formData.display_specs) fd.append('display_specs', formData.display_specs);
+        if (formData.chip_specs) fd.append('chip_specs', formData.chip_specs);
+        fd.append('is_active', String(formData.is_active));
+        fd.append('is_featured', String(formData.is_featured));
+        fd.append('is_coupon_product', String(formData.is_coupon_product));
+        // All images use 'image' field name; first becomes primary
+        imageFiles.forEach(file => fd.append('image', file));
+
+        const response = await fetch(`${baseUrl}/`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+          body: fd,
+        });
+
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || result.message || 'Failed to create product');
+        toast.success('Product created successfully!');
       }
-      
-      // Reset form and editing state
+
       setEditingProductId(null);
-      setExistingMainImageUrl(null);
-      setFormData({
-        name: '',
-        slug: '',
-        category_input: '',
-        description: '',
-        short_description: '',
-        price: '',
-        price_usdt: '',
-        discount_percentage: '',
-        stock_quantity: '',
-        product_condition: '',
-        sku: '',
-        brand: '',
-        brand_input: '',
-        model: '',
-        colors: [],
-        storage_options: [],
-        ram_options: [],
-        specifications: '',
-        features: [],
-        is_featured: false,
-        is_active: true,
-        is_coupon: false,
-        coupon_value: '',
-      });
-      setMainImage(null);
-      setAdditionalImages([]);
+      setImageFiles([]);
+      setFormData(emptyForm);
+      setActiveTab('list');
+      fetchProducts();
 
     } catch (error) {
       toast.error(error instanceof Error ? error.message : (editingProductId ? 'Failed to update product' : 'Failed to create product'));
@@ -460,34 +392,8 @@ export default function Products() {
                 <button
                   onClick={() => {
                     setEditingProductId(null);
-                    setExistingMainImageUrl(null);
-                    setFormData({
-                      name: '',
-                      slug: '',
-                      category_input: '',
-                      description: '',
-                      short_description: '',
-                      price: '',
-                      price_usdt: '',
-                      discount_percentage: '',
-                      stock_quantity: '',
-                      product_condition: '',
-                      sku: '',
-                      brand: '',
-                      brand_input: '',
-                      model: '',
-                      colors: [],
-                      storage_options: [],
-                      ram_options: [],
-                      specifications: '',
-                      features: [],
-                      is_featured: false,
-                      is_active: true,
-                      is_coupon: false,
-                      coupon_value: '',
-                    });
-                    setMainImage(null);
-                    setAdditionalImages([]);
+                    setImageFiles([]);
+                    setFormData(emptyForm);
                   }}
                   className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors flex items-center gap-2"
                 >
@@ -569,9 +475,9 @@ export default function Products() {
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              {product.main_image ? (
+                              {product.images?.[0]?.url || product.main_image ? (
                                 <Image
-                                  src={product.main_image}
+                                  src={product.images?.[0]?.url || product.main_image}
                                   alt={product.name}
                                   width={48}
                                   height={48}
@@ -589,7 +495,7 @@ export default function Products() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-white">{product.category?.display_name}</div>
+                            <div className="text-sm text-white">{product.category}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-white">
@@ -642,25 +548,6 @@ export default function Products() {
                               >
                                 <Eye size={16} />
                               </button>
-                              {product.stock_quantity > 0 ? (
-                                <button
-                                  onClick={() => toggleStockStatus(product.id, 'out_of_stock')}
-                                  disabled={stockUpdating === product.id}
-                                  className="text-red-400 hover:text-red-300 disabled:text-gray-500 transition-colors"
-                                  title="Mark Out of Stock"
-                                >
-                                  <AlertTriangle size={16} />
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => toggleStockStatus(product.id, 'restore', 10)}
-                                  disabled={stockUpdating === product.id}
-                                  className="text-green-400 hover:text-green-300 disabled:text-gray-500 transition-colors"
-                                  title="Restore Stock"
-                                >
-                                  <Package size={16} />
-                                </button>
-                              )}
                             </div>
                           </td>
                         </motion.tr>
@@ -681,683 +568,249 @@ export default function Products() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2, duration: 0.6 }}
             >
-              {/* Product Type Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Product Type *
+              {/* Product Type */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Product Type</label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="product_type" value="regular"
+                      checked={!formData.is_coupon_product}
+                      onChange={() => setFormData(prev => ({ ...prev, is_coupon_product: false }))}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-300">Regular Product</span>
                   </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="product_type"
-                        value="regular"
-                        checked={!formData.is_coupon}
-                        onChange={() => setFormData(prev => ({ ...prev, is_coupon: false, coupon_value: '' }))}
-                        className="text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-slate-300">Regular Product</span>
-                    </label>
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="product_type"
-                        value="coupon"
-                        checked={formData.is_coupon}
-                        onChange={() => setFormData(prev => ({ ...prev, is_coupon: true }))}
-                        className="text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-slate-300">Coupon Product</span>
-                    </label>
-                  </div>
+                  <label className="flex items-center gap-2">
+                    <input type="radio" name="product_type" value="coupon"
+                      checked={formData.is_coupon_product}
+                      onChange={() => setFormData(prev => ({ ...prev, is_coupon_product: true }))}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-slate-300">Coupon Product</span>
+                  </label>
                 </div>
               </div>
 
               {/* Basic Information */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Product Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Product Name *</label>
+                  <input type="text" name="name" value={formData.name} onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    required
-                  />
+                    required />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Slug
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      name="slug"
-                      value={formData.slug}
-                      onChange={handleInputChange}
-                      className="flex-1 px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                      placeholder="auto-generated"
-                    />
-                    <button
-                      type="button"
-                      onClick={generateSlug}
-                      className="px-4 py-3 bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors"
-                    >
-                      Generate
-                    </button>
-                  </div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Category *</label>
+                  <select name="category_id" value={formData.category_id} onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                    required>
+                    <option value="">Select category</option>
+                    {categories.map(c => (
+                      <option key={c.id} value={c.id}>{c.display_name || c.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Category *
-                  </label>
-                  <input
-                    type="text"
-                    name="category_input"
-                    value={formData.category_input}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    placeholder="Enter category name"
-                    required
-                  />
-                  <p className="text-xs text-slate-400 mt-1">Enter the category name (e.g., smartphones, laptops)</p>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Brand</label>
+                  <select name="brand_id" value={formData.brand_id} onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white">
+                    <option value="">No brand</option>
+                    {brands.map(b => (
+                      <option key={b.id} value={b.id}>{b.display_name || b.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Description</label>
+                  <textarea name="description" value={formData.description} onChange={handleInputChange}
                     rows={4}
-                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    required
-                  />
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Short Description
-                  </label>
-                  <textarea
-                    name="short_description"
-                    value={formData.short_description}
-                    onChange={handleInputChange}
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Short Description</label>
+                  <textarea name="short_description" value={formData.short_description} onChange={handleInputChange}
                     rows={2}
-                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                  />
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
                 </div>
               </div>
 
               {/* Pricing & Stock */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {formData.is_coupon && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Coupon Value (₦) *
-                      </label>
-                      <input
-                        type="number"
-                        name="coupon_value"
-                        value={formData.coupon_value}
-                        onChange={handleInputChange}
-                        step="0.01"
-                        min="0"
-                        className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                        required={formData.is_coupon}
-                        placeholder="e.g., 500"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">The actual credit value customers will receive</p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Brand Name *
-                      </label>
-                      <input
-                        type="text"
-                        name="brand_input"
-                        value={formData.brand_input}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                        required={formData.is_coupon}
-                        placeholder="e.g., Apple, Samsung, Nokia"
-                      />
-                      <p className="text-xs text-slate-400 mt-1">Manual brand entry for coupons</p>
-                    </div>
-                  </>
-                )}
-                
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Price (USD) *
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    value={formData.price}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    min="0"
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Price (₦) *</label>
+                  <input type="number" name="price" value={formData.price} onChange={handleInputChange}
+                    step="0.01" min="0"
                     className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    required
-                  />
+                    required />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Price (USDT)
-                  </label>
-                  <input
-                    type="number"
-                    name="price_usdt"
-                    value={formData.price_usdt}
-                    onChange={handleInputChange}
-                    step="0.01"
-                    min="0"
-                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                  />
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Price (USDT)</label>
+                  <input type="number" name="price_usdt" value={formData.price_usdt} onChange={handleInputChange}
+                    step="0.01" min="0"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Discount %
-                  </label>
-                  <input
-                    type="number"
-                    name="discount_percentage"
-                    value={formData.discount_percentage}
-                    onChange={handleInputChange}
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                  />
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Discount %</label>
+                  <input type="number" name="discount_percentage" value={formData.discount_percentage}
+                    onChange={handleInputChange} min="0" max="100" step="0.1"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Stock Quantity {formData.is_coupon ? '(Auto-set to 999999)' : '*'}
-                  </label>
-                  <input
-                    type="number"
-                    name="stock_quantity"
-                    value={formData.stock_quantity}
-                    onChange={handleInputChange}
-                    min="0"
-                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    required={!formData.is_coupon}
-                    disabled={formData.is_coupon}
-                  />
-                  {formData.is_coupon && (
-                    <p className="text-xs text-slate-400 mt-1">Stock quantity is automatically set to 999999 for coupon products</p>
-                  )}
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Stock Quantity</label>
+                  <input type="number" name="stock_quantity" value={formData.stock_quantity}
+                    onChange={handleInputChange} min="0"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
                 </div>
+              </div>
 
+              {/* Product Details */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Product Condition {formData.is_coupon ? '(Auto-set to "new")' : '*'}
-                  </label>
-                  <select
-                    name="product_condition"
-                    value={formData.product_condition}
-                    onChange={handleInputChange}
+                  <label className="block text-sm font-medium text-slate-300 mb-2">SKU *</label>
+                  <input type="text" name="sku" value={formData.sku} onChange={handleInputChange}
                     className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                    required={!formData.is_coupon}
-                    disabled={formData.is_coupon}
-                  >
-                    <option value="">Select Condition</option>
+                    required />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Model</label>
+                  <input type="text" name="model" value={formData.model} onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Condition *</label>
+                  <select name="product_condition" value={formData.product_condition} onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                    required>
                     <option value="new">New</option>
-                    <option value="uk_used">UK Used</option>
-                    <option value="nigerian_used">Nigerian Used</option>
                     <option value="refurbished">Refurbished</option>
+                    <option value="used">Used</option>
                   </select>
-                  {formData.is_coupon && (
-                    <p className="text-xs text-slate-400 mt-1">Product condition is automatically set to &quot;new&quot; for coupon products</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Display Specs</label>
+                  <input type="text" name="display_specs" value={formData.display_specs} onChange={handleInputChange}
+                    placeholder="e.g. 6.1-inch OLED"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-2">Chip Specs</label>
+                  <input type="text" name="chip_specs" value={formData.chip_specs} onChange={handleInputChange}
+                    placeholder="e.g. A17 Pro"
+                    className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white" />
+                </div>
+              </div>
+
+              {/* Array Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {(['colors', 'storage_options', 'ram_options'] as const).map(field => (
+                  <div key={field}>
+                    <label className="block text-sm font-medium text-slate-300 mb-2 capitalize">
+                      {field.replace('_', ' ')}
+                    </label>
+                    <div className="flex gap-2 mb-2">
+                      <input type="text" id={`${field}Input`}
+                        className="flex-1 px-3 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
+                        placeholder={`Add ${field.replace('_options', '').replace('_', ' ')}`}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const input = e.target as HTMLInputElement;
+                            handleArrayInput(field, input.value);
+                            input.value = '';
+                          }
+                        }}
+                      />
+                      <button type="button"
+                        onClick={() => {
+                          const input = document.getElementById(`${field}Input`) as HTMLInputElement;
+                          handleArrayInput(field, input.value);
+                          input.value = '';
+                        }}
+                        className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm">
+                        Add
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {formData[field].map((item, index) => (
+                        <span key={index} className="bg-blue-700 text-white px-2 py-1 rounded-full text-xs flex items-center gap-1">
+                          {item}
+                          <X size={12} className="cursor-pointer hover:text-red-300"
+                            onClick={() => removeArrayItem(field, index)} />
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Images */}
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Product Images <span className="text-slate-400 font-normal">(first becomes primary, max 6)</span>
+                </label>
+                <div className="border-2 border-dashed border-slate-500 rounded-lg p-4 text-center">
+                  <input type="file" accept="image/*" multiple id="productImages"
+                    onChange={handleImageUpload} className="hidden" />
+                  <label htmlFor="productImages" className="cursor-pointer">
+                    <Upload className="mx-auto mb-2 text-slate-400" size={32} />
+                    <p className="text-slate-400">Click to upload product images</p>
+                  </label>
+                  {imageFiles.length > 0 && (
+                    <div className="mt-4 space-y-2">
+                      {imageFiles.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between bg-slate-600 p-2 rounded">
+                          <span className="text-white text-sm truncate">
+                            {index === 0 && <span className="text-yellow-400 mr-2 text-xs">[Primary]</span>}
+                            {file.name}
+                          </span>
+                          <X size={16} className="cursor-pointer text-red-400 hover:text-red-300 flex-shrink-0"
+                            onClick={() => removeImageFile(index)} />
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
 
-              {/* Product Details - Only for Regular Products */}
-              {formData.is_coupon && (
-                <>
-                  {/* Image Uploads for Coupons */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Main Coupon Image
-                      </label>
-                      <div className="border-2 border-dashed border-slate-500 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleImageUpload(e, true)}
-                          className="hidden"
-                          id="couponMainImage"
-                        />
-                        <label htmlFor="couponMainImage" className="cursor-pointer">
-                          <Upload className="mx-auto mb-2 text-slate-400" size={32} />
-                          <p className="text-slate-400">Click to upload main coupon image</p>
-                        </label>
-                        {mainImage && (
-                          <div className="mt-4 flex items-center justify-center gap-2">
-                            <span className="text-white text-sm">{mainImage.name}</span>
-                            <X
-                              size={16}
-                              className="cursor-pointer text-red-400 hover:text-red-300"
-                              onClick={() => removeImage(0, true)}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
+              {/* Settings */}
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="is_featured" checked={formData.is_featured}
+                    onChange={handleInputChange}
+                    className="rounded border-slate-500 bg-slate-600 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-slate-300">Featured</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="is_active" checked={formData.is_active}
+                    onChange={handleInputChange}
+                    className="rounded border-slate-500 bg-slate-600 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-slate-300">Active / Visible</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="is_coupon_product" checked={formData.is_coupon_product}
+                    onChange={handleInputChange}
+                    className="rounded border-slate-500 bg-slate-600 text-blue-600 focus:ring-blue-500" />
+                  <span className="text-slate-300">Coupon Product</span>
+                </label>
+              </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Additional Coupon Images (Max 5)
-                      </label>
-                      <div className="border-2 border-dashed border-slate-500 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handleImageUpload(e)}
-                          className="hidden"
-                          id="couponAdditionalImages"
-                        />
-                        <label htmlFor="couponAdditionalImages" className="cursor-pointer">
-                          <Upload className="mx-auto mb-2 text-slate-400" size={32} />
-                          <p className="text-slate-400">Click to upload additional coupon images</p>
-                        </label>
-                        {additionalImages.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            {additionalImages.map((image, index) => (
-                              <div key={index} className="flex items-center justify-between bg-slate-600 p-2 rounded">
-                                <span className="text-white text-sm truncate">{image.name}</span>
-                                <X
-                                  size={16}
-                                  className="cursor-pointer text-red-400 hover:text-red-300"
-                                  onClick={() => removeImage(index)}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              {/* Product Details - Only for Regular Products */}
-              {!formData.is_coupon && (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        SKU
-                      </label>
-                      <input
-                        type="text"
-                        name="sku"
-                        value={formData.sku}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Brand
-                      </label>
-                      <input
-                        type="text"
-                        name="brand"
-                        value={formData.brand}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Model
-                      </label>
-                      <input
-                        type="text"
-                        name="model"
-                        value={formData.model}
-                        onChange={handleInputChange}
-                        className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Array Fields */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Colors
-                      </label>
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          id="colorInput"
-                          className="flex-1 px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
-                          placeholder="Add color"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const input = e.target as HTMLInputElement;
-                              handleArrayInput('colors', input.value);
-                              input.value = '';
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById('colorInput') as HTMLInputElement;
-                            handleArrayInput('colors', input.value);
-                            input.value = '';
-                          }}
-                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                        >
-                          Add
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {formData.colors.map((color, index) => (
-                          <span key={index} className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                            {color}
-                            <X
-                              size={14}
-                              className="cursor-pointer hover:text-red-300"
-                              onClick={() => removeArrayItem('colors', index)}
-                            />
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Storage Options
-                      </label>
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          id="storageInput"
-                          className="flex-1 px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
-                          placeholder="Add storage"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const input = e.target as HTMLInputElement;
-                              handleArrayInput('storage_options', input.value);
-                              input.value = '';
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById('storageInput') as HTMLInputElement;
-                            handleArrayInput('storage_options', input.value);
-                            input.value = '';
-                          }}
-                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                        >
-                          Add
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {formData.storage_options.map((storage, index) => (
-                          <span key={index} className="bg-green-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                            {storage}
-                            <X
-                              size={14}
-                              className="cursor-pointer hover:text-red-300"
-                              onClick={() => removeArrayItem('storage_options', index)}
-                            />
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* RAM Options and Features */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        RAM Options
-                      </label>
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          id="ramInput"
-                          className="flex-1 px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
-                          placeholder="Add RAM option"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const input = e.target as HTMLInputElement;
-                              handleArrayInput('ram_options', input.value);
-                              input.value = '';
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById('ramInput') as HTMLInputElement;
-                            handleArrayInput('ram_options', input.value);
-                            input.value = '';
-                          }}
-                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                        >
-                          Add
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {formData.ram_options.map((ram, index) => (
-                          <span key={index} className="bg-purple-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                            {ram}
-                            <X
-                              size={14}
-                              className="cursor-pointer hover:text-red-300"
-                              onClick={() => removeArrayItem('ram_options', index)}
-                            />
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Key Features
-                      </label>
-                      <div className="flex gap-2 mb-2">
-                        <input
-                          type="text"
-                          id="featureInput"
-                          className="flex-1 px-4 py-2 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white text-sm"
-                          placeholder="Add feature"
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              const input = e.target as HTMLInputElement;
-                              handleArrayInput('features', input.value);
-                              input.value = '';
-                            }
-                          }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const input = document.getElementById('featureInput') as HTMLInputElement;
-                            handleArrayInput('features', input.value);
-                            input.value = '';
-                          }}
-                          className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-                        >
-                          Add
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {formData.features.map((feature, index) => (
-                          <span key={index} className="bg-orange-600 text-white px-3 py-1 rounded-full text-sm flex items-center gap-2">
-                            {feature}
-                            <X
-                              size={14}
-                              className="cursor-pointer hover:text-red-300"
-                              onClick={() => removeArrayItem('features', index)}
-                            />
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Specifications */}
-                  <div>
-                    <label className="block text-sm font-medium text-slate-300 mb-2">
-                      Detailed Specifications
-                    </label>
-                    <textarea
-                      name="specifications"
-                      value={formData.specifications}
-                      onChange={handleInputChange}
-                      rows={6}
-                      className="w-full px-4 py-3 bg-slate-600 border border-slate-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                      placeholder="Enter detailed product specifications..."
-                    />
-                  </div>
-
-                  {/* Image Uploads */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Main Product Image
-                      </label>
-                      <div className="border-2 border-dashed border-slate-500 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleImageUpload(e, true)}
-                          className="hidden"
-                          id="mainImage"
-                        />
-                        <label htmlFor="mainImage" className="cursor-pointer">
-                          <Upload className="mx-auto mb-2 text-slate-400" size={32} />
-                          <p className="text-slate-400">Click to upload main image</p>
-                        </label>
-                        {mainImage && (
-                          <div className="mt-4 flex items-center justify-center gap-2">
-                            <span className="text-white text-sm">{mainImage.name}</span>
-                            <X
-                              size={16}
-                              className="cursor-pointer text-red-400 hover:text-red-300"
-                              onClick={() => removeImage(0, true)}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        Additional Images (Max 5)
-                      </label>
-                      <div className="border-2 border-dashed border-slate-500 rounded-lg p-4 text-center">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handleImageUpload(e)}
-                          className="hidden"
-                          id="additionalImages"
-                        />
-                        <label htmlFor="additionalImages" className="cursor-pointer">
-                          <Upload className="mx-auto mb-2 text-slate-400" size={32} />
-                          <p className="text-slate-400">Click to upload additional images</p>
-                        </label>
-                        {additionalImages.length > 0 && (
-                          <div className="mt-4 space-y-2">
-                            {additionalImages.map((image, index) => (
-                              <div key={index} className="flex items-center justify-between bg-slate-600 p-2 rounded">
-                                <span className="text-white text-sm truncate">{image.name}</span>
-                                <X
-                                  size={16}
-                                  className="cursor-pointer text-red-400 hover:text-red-300"
-                                  onClick={() => removeImage(index)}
-                                />
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Settings */}
-                  <div className="flex flex-wrap gap-6">
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="is_featured"
-                        checked={formData.is_featured}
-                        onChange={handleInputChange}
-                        className="rounded border-slate-500 bg-slate-600 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-slate-300">Mark as Featured Product</span>
-                    </label>
-
-                    <label className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        name="is_active"
-                        checked={formData.is_active}
-                        onChange={handleInputChange}
-                        className="rounded border-slate-500 bg-slate-600 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-slate-300">Product is active/Visible</span>
-                    </label>
-                  </div>
-                </>
-              )}
-
-              {/* Submit Button - INSIDE THE FORM */}
+              {/* Submit Button */}
               <div className="flex justify-end pt-6">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
-                >
+                <button type="submit" disabled={loading}
+                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
                   {loading ? (
                     <>
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      {editingProductId 
-                        ? (formData.is_coupon ? 'Updating Coupon...' : 'Updating Product...')
-                        : (formData.is_coupon ? 'Creating Coupon...' : 'Creating Product...')
-                      }
+                      {editingProductId ? 'Updating...' : 'Creating...'}
                     </>
                   ) : (
                     <>
                       {editingProductId ? <Edit size={20} /> : <Plus size={20} />}
-                      {editingProductId
-                        ? (formData.is_coupon ? 'Update Coupon' : 'Update Product')
-                        : (formData.is_coupon ? 'Create Coupon' : 'Create Product')
-                      }
+                      {editingProductId ? 'Update Product' : 'Create Product'}
                     </>
                   )}
                 </button>
