@@ -166,7 +166,7 @@ export default function PhoneSwaps() {
           </div>
 
           <div className="space-y-6">
-            {data.requests.length === 0 ? (
+            {!data.requests || data.requests.length === 0 ? (
               <div className="bg-slate-700 p-8 rounded-lg text-center text-slate-400">
                 No swap requests found.
               </div>

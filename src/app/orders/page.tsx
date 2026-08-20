@@ -449,7 +449,7 @@ export default function Orders() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-600">
-                  {data.results.map((order, index) => (
+                  {data.results?.map((order, index) => (
                     <motion.tr
                       key={order.order_id}
                       className="hover:bg-slate-600 transition-colors"

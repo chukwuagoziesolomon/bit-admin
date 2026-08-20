@@ -286,12 +286,12 @@ export default function UsersPage() {
               <div className="bg-slate-700 p-4 rounded-lg text-center">
                 <div className="flex items-center justify-center mb-2"><UserCheck className="text-green-400" size={20} /></div>
                 <h3 className="text-sm font-semibold text-white">Active</h3>
-                <p className="text-2xl font-bold text-green-400">{usersData.users.filter(u => u.is_active).length}</p>
+                <p className="text-2xl font-bold text-green-400">{(usersData.users?.filter(u => u.is_active).length ?? 0)}</p>
               </div>
               <div className="bg-slate-700 p-4 rounded-lg text-center">
                 <div className="flex items-center justify-center mb-2"><Shield className="text-orange-400" size={20} /></div>
                 <h3 className="text-sm font-semibold text-white">Staff</h3>
-                <p className="text-2xl font-bold text-orange-400">{usersData.users.filter(u => u.is_staff).length}</p>
+                <p className="text-2xl font-bold text-orange-400">{(usersData.users?.filter(u => u.is_staff).length ?? 0)}</p>
               </div>
             </motion.div>
           )}
@@ -316,7 +316,7 @@ export default function UsersPage() {
                   <Clock className="text-green-400" size={20} />
                 </div>
                 <h3 className="text-sm font-semibold text-white">This Page</h3>
-                <p className="text-2xl font-bold text-green-400">{waitlistData.results.length}</p>
+                <p className="text-2xl font-bold text-green-400">{waitlistData.results?.length ?? 0}</p>
               </div>
             </motion.div>
           )}
@@ -455,7 +455,7 @@ export default function UsersPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-600">
-                      {waitlistData && waitlistData.results.map((user, index) => (
+                      {waitlistData && waitlistData.results?.map((user, index) => (
                         <motion.tr
                           key={user.id}
                           className="hover:bg-slate-600 transition-colors"
@@ -519,7 +519,7 @@ export default function UsersPage() {
                 </motion.div>
               )}
 
-              {waitlistData && waitlistData.results.length === 0 && (
+              {waitlistData && (waitlistData.results?.length ?? 0) === 0 && (
                 <div className="text-center py-12">
                   <Clock className="mx-auto h-12 w-12 text-slate-400" />
                   <h3 className="mt-2 text-sm font-medium text-slate-300">No waitlist signups found</h3>

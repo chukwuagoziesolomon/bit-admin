@@ -88,7 +88,7 @@ export default function Messages() {
               <p className="text-slate-400 mb-6">{data.count} message{data.count !== 1 ? 's' : ''}</p>
 
               <div className="space-y-6">
-                {data.results.map((message, index) => (
+                {data.results?.map((message, index) => (
                   <motion.div
                     key={message.id}
                     className="bg-slate-700 p-6 rounded-lg shadow-lg"

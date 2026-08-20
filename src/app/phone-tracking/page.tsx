@@ -244,7 +244,7 @@ export default function PhoneTracking() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-600">
-                    {data?.requests.map((request, index) => (
+                    {data?.requests?.map((request, index) => (
                       <motion.tr
                         key={request.id}
                         className="hover:bg-slate-600 transition-colors"
@@ -301,7 +301,7 @@ export default function PhoneTracking() {
                   </tbody>
                 </table>
 
-                {data?.requests.length === 0 && (
+                {data?.requests?.length === 0 && (
                   <div className="text-center py-12">
                     <MapPin className="mx-auto h-12 w-12 text-slate-400" />
                     <h3 className="mt-2 text-sm font-medium text-slate-300">No tracking requests found</h3>
