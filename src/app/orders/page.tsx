@@ -468,7 +468,7 @@ export default function Orders() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-white">
-                          ₦{order.total_amount.toLocaleString()}
+                          ₦{(order.total_amount ?? 0).toLocaleString()}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -642,7 +642,7 @@ export default function Orders() {
                 <div className="text-sm text-slate-400 space-y-1">
                   <p><strong>Customer:</strong> {selectedOrder.first_name} {selectedOrder.last_name}</p>
                   <p><strong>Email:</strong> {selectedOrder.email}</p>
-                  <p><strong>Total:</strong> ₦{selectedOrder.total_amount.toLocaleString()}</p>
+                  <p><strong>Total:</strong> ₦{selectedOrder.total_amount?.toLocaleString() ?? 'N/A'}</p>
                 </div>
               </div>
             </div>
@@ -933,7 +933,7 @@ export default function Orders() {
                 <span className="font-semibold">Current Status:</span> {paymentOverrideModal.status}
               </p>
               <p className="text-sm text-slate-300">
-                <span className="font-semibold">Amount:</span> ₦{paymentOverrideModal.total_amount.toLocaleString()}
+                <span className="font-semibold">Amount:</span> ₦{paymentOverrideModal.total_amount?.toLocaleString() ?? 'N/A'}
               </p>
             </div>
 

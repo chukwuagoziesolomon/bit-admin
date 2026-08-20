@@ -144,7 +144,7 @@ export default function PhoneTracking() {
   };
 
   const currentPage = Math.floor(offset / limit) + 1;
-  const totalPages = data ? Math.ceil(data.pagination.total / limit) : 1;
+  const totalPages = data?.pagination ? Math.ceil(data.pagination.total / limit) : 1;
 
   if (loading && !data) {
     return (
@@ -214,7 +214,7 @@ export default function PhoneTracking() {
             </select>
             {data && (
               <span className="text-sm text-slate-400 ml-auto">
-                Total: {data.pagination.total} requests
+                Total: {data.pagination?.total ?? 0} requests
               </span>
             )}
           </motion.div>
@@ -315,14 +315,14 @@ export default function PhoneTracking() {
           </motion.div>
 
           {/* Pagination */}
-          {data && data.pagination.total > limit && (
+          {data && data.pagination && data.pagination.total > limit && (
             <motion.div
               className="bg-slate-700 p-4 rounded-lg flex flex-col sm:flex-row items-center justify-between gap-4"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
             >
               <div className="text-sm text-slate-400">
-                Showing {offset + 1}–{Math.min(offset + limit, data.pagination.total)} of {data.pagination.total} requests
+                Showing {offset + 1}–{Math.min(offset + limit, data.pagination?.total ?? 0)} of {data.pagination?.total ?? 0} requests
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -335,7 +335,7 @@ export default function PhoneTracking() {
                 <span className="text-sm text-slate-400">Page {currentPage} of {totalPages}</span>
                 <button
                   onClick={() => setOffset(offset + limit)}
-                  disabled={offset + limit >= data.pagination.total}
+                  disabled={offset + limit >= (data.pagination?.total ?? 0)}
                   className="px-3 py-2 bg-slate-600 hover:bg-slate-500 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
                 >
                   Next

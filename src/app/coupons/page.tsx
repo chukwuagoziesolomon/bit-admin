@@ -767,19 +767,19 @@ export default function CouponsPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
                       <p className="text-slate-400 text-sm mb-2">Total Coupons</p>
-                      <p className="text-3xl font-bold text-blue-400">{stats.total_coupons}</p>
+                      <p className="text-3xl font-bold text-blue-400">{stats?.total_coupons ?? 0}</p>
                     </motion.div>
                     <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
                       <p className="text-slate-400 text-sm mb-2">Active</p>
-                      <p className="text-3xl font-bold text-green-400">{stats.active_coupons}</p>
+                      <p className="text-3xl font-bold text-green-400">{stats?.active_coupons ?? 0}</p>
                     </motion.div>
                     <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
                       <p className="text-slate-400 text-sm mb-2">Total Usage</p>
-                      <p className="text-3xl font-bold text-yellow-400">{stats.total_usage}</p>
+                      <p className="text-3xl font-bold text-yellow-400">{stats?.total_usage ?? 0}</p>
                     </motion.div>
                     <motion.div className="bg-slate-700 p-6 rounded-lg" whileHover={{ scale: 1.03 }}>
                       <p className="text-slate-400 text-sm mb-2">Total Discount Given</p>
-                      <p className="text-3xl font-bold text-purple-400">₦{stats.total_discount_given.toLocaleString()}</p>
+                      <p className="text-3xl font-bold text-purple-400">₦{(stats?.total_discount_given ?? 0).toLocaleString()}</p>
                     </motion.div>
                   </div>
                 ) : null}

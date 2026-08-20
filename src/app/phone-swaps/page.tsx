@@ -161,7 +161,7 @@ export default function PhoneSwaps() {
               <option value="rejected">Rejected</option>
             </select>
             <span className="text-slate-400 text-sm">
-              {data.pagination.total} total request{data.pagination.total !== 1 ? 's' : ''}
+              {data.pagination?.total ?? 0} total request{(data.pagination?.total ?? 0) !== 1 ? 's' : ''}
             </span>
           </div>
 
